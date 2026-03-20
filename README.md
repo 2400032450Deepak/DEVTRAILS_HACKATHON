@@ -1,4 +1,5 @@
-## AI-Powered Parametric Insurance for Quick Commerce Delivery Partners
+#  DeliverShield AI  
+### AI-Powered Parametric Insurance for Quick Commerce Delivery Partners
 ---
 ## Problem Overview
 India’s gig economy relies heavily on platform-based delivery partners working with services like quick commerce grocery delivery.  
@@ -28,14 +29,14 @@ Examples:
 -	Traffic → delays and fewer completed orders  
 -	App downtime → zero orders  
 ---
-Persona-Based Scenario  
+## Persona-Based Scenario  
 Ravi – Delivery Partner (Hyderabad)  
 -	Ravi logs in at 9:00 AM and activates a weekly insurance plan for ₹25  
 -	He works in a high-demand urban delivery zone  
 -	At 2:00 PM, heavy rainfall begins  
 -	Rainfall exceeds 40 mm/hour for over 60 minutes  
 -	Orders drop by 60%  
- System Action:  
+ ### System Action:  
 -	Parametric trigger activates  
 -	AI estimates ₹300 income loss  
 -	Automatic payout is processed  
@@ -43,7 +44,7 @@ Ravi – Delivery Partner (Hyderabad)
 ✔ No manual verification  
 ✔ Instant financial relief  
 ---
-3. Proposed Solution  
+## Proposed Solution  
 We propose an AI-powered parametric insurance system that automatically protects delivery partners against income loss caused by external disruptions.  
 Key Features:  
 -	Simple weekly insurance plans  
@@ -215,7 +216,5 @@ Phase 3
 -	Analytics dashboard  
 -	Final demo  
 ---
- Conclusion  
+## Conclusion  
 This platform introduces a scalable, AI-driven parametric insurance model tailored for gig economy workers. By removing manual claims and leveraging real-time data, it ensures fast, transparent, and reliable income protection.  
-
-
