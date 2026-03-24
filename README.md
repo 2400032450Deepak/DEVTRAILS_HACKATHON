@@ -1,220 +1,257 @@
-#  DeliverShield AI  
-### AI-Powered Parametric Insurance for Quick Commerce Delivery Partners
+﻿#  DeliverShield AI – Frontend
+
+A production-ready, mobile-first React frontend for an **AI-powered parametric insurance platform** designed for quick-commerce delivery partners.
+
+This project is built as part of a **hackathon**, with a modular architecture where:
+
+*  Frontend is fully developed and functional
+*  Backend (Spring Boot) will be integrated by teammates
+*  Payment gateway will be added if required
+
 ---
-## Problem Overview
-India’s gig economy relies heavily on platform-based delivery partners working with services like quick commerce grocery delivery.  
-These workers earn primarily through completed deliveries and incentives that depend on continuous activity during the day. However, their income is highly sensitive to external disruptions such as:  
--	Heavy rainfall  
--	Extreme heat  
--	High pollution levels  
--	Traffic congestion  
--	Platform outages  
-When such disruptions occur, delivery operations slow down or temporarily stop, directly reducing the number of orders a rider can complete.  
-Unlike salaried employees, gig workers currently do not have income protection against these uncontrollable external conditions. Even a few hours of disruption can lead to 20–30% loss in weekly earnings, with no safety net.  
-This project proposes a parametric insurance platform designed specifically to protect gig workers from income loss caused by such disruptions.  
+
+##  Project Idea
+
+DeliverShield AI provides **automatic insurance payouts** to delivery partners based on real-world environmental conditions such as:
+
+*  Rainfall
+*  Temperature
+*  Air Quality (AQI)
+
+ No manual claims
+ Fully automated triggers
+ Real-time data driven
+
 ---
-## Selected Persona  
-Target Users: Quick Commerce Delivery Partners  
-Example platforms:  
--	Zepto  
--	Blinkit  
--	Swiggy Instamart  
--	BigBasket Now  
-Quick commerce delivery riders operate in hyperlocal zones and complete deliveries within 10–20 minutes.  
-Why this persona?  
-This ecosystem depends heavily on continuous, uninterrupted delivery cycles. Even short disruptions immediately impact earnings.  
-Examples:  
--	Heavy rain → fewer orders + slower delivery  
--	High AQI → reduced outdoor demand  
--	Traffic → delays and fewer completed orders  
--	App downtime → zero orders  
+
+##  Tech Stack
+
+* React (Functional Components + Hooks)
+* JavaScript (ES6+)
+* Tailwind CSS
+* React Router v6+
+* Axios
+
 ---
-## Persona-Based Scenario  
-Ravi – Delivery Partner (Hyderabad)  
--	Ravi logs in at 9:00 AM and activates a weekly insurance plan for ₹25  
--	He works in a high-demand urban delivery zone  
--	At 2:00 PM, heavy rainfall begins  
--	Rainfall exceeds 40 mm/hour for over 60 minutes  
--	Orders drop by 60%  
- ### System Action:  
--	Parametric trigger activates  
--	AI estimates ₹300 income loss  
--	Automatic payout is processed  
-✔ No claim filing  
-✔ No manual verification  
-✔ Instant financial relief  
+
+##  Run Locally
+
+### 1. Install dependencies
+
+```bash
+npm install
+```
+
+### 2. Setup environment variables
+
+```bash
+copy .env.example .env
+```
+
+Update `.env`:
+
+```env
+REACT_APP_OPENWEATHER_API_KEY=your_api_key
+REACT_APP_API_BASE_URL=http://localhost:8080
+REACT_APP_USE_MOCK_API=true
+```
+
+### 3. Start application
+
+```bash
+npm start
+```
+
 ---
-## Proposed Solution  
-We propose an AI-powered parametric insurance system that automatically protects delivery partners against income loss caused by external disruptions.  
-Key Features:  
--	Simple weekly insurance plans  
--	Real-time disruption detection  
--	Fully automated payouts  
--	No manual claims  
--	AI-based fraud detection  
- The goal is to create a lightweight, fast, and reliable safety net for gig workers.  
+
+##  Environment Variables
+
+| Variable                      | Description                          |
+| ----------------------------- | ------------------------------------ |
+| REACT_APP_OPENWEATHER_API_KEY | API key for weather + AQI + location |
+| REACT_APP_API_BASE_URL        | Backend (Spring Boot) base URL       |
+| REACT_APP_USE_MOCK_API        | Toggle mock vs real backend          |
+
 ---
-## Coverage Scope  
- Covered:  
--	Severe rainfall  
--	Extreme heat  
--	Dangerous pollution levels  
--	Traffic congestion  
--	Platform downtime  
--	Zone closures / curfews  
- Not Covered:  
--	Health insurance  
--	Accidents  
--	Vehicle damage  
--	Medical expenses  
--	Life insurance  
- Focus is strictly on income loss due to external disruptions  
+
+##  Architecture Highlights
+
+*  Centralized API client with interceptors (`api.js`)
+*  Global state using Context API
+*  Lazy loading for performance
+*  Payment abstraction layer
+*  Clean separation of components and pages
+*  Global live location system with persistence
+
 ---
-## Weekly Premium Model  
- Why Weekly Model?  
--	Gig workers operate on weekly earning cycles  
--	Low commitment → easier adoption  
--	Flexible compared to traditional insurance  
--	Matches real cash flow patterns  
+
+##  Folder Structure
+
+```text
+src/
+  components/
+  context/
+    AppContext.jsx
+  hooks/
+    useApp.js
+  pages/
+    AuthPage.jsx
+    DashboardPage.jsx
+    MonitoringPage.jsx
+    PaymentPage.jsx
+    PayoutPage.jsx
+    PlansPage.jsx
+  services/
+    api.js
+    paymentService.js
+  App.js
+```
+
 ---
- Pricing Structure  
--	Weekly Premium: ₹20 – ₹35  
--	Weekly Coverage: ₹1000 – ₹1500  
+
+## 🔌 API Integration (Frontend Expectations)
+
+The frontend is fully prepared for backend integration.
+
+### Expected Endpoints:
+
+| Method | Endpoint       |
+| ------ | -------------- |
+| POST   | /login         |
+| GET    | /plans         |
+| POST   | /activate-plan |
+| GET    | /status        |
+| GET    | /payouts       |
+| POST   | /payment       |
+
 ---
- Risk-Based Pricing Factors  
--	Rainfall frequency  
--	Pollution levels  
--	Traffic congestion  
--	Historical disruption data  
- Workers in safer zones pay less, while high-risk zones get better coverage.  
+
+## 📦 Expected Backend Response Format
+
+### Login
+
+```json
+{
+  "token": "jwt-token",
+  "user": { "id": 1, "name": "Rider", "contact": "9876543210" }
+}
+```
+
+### Plans
+
+```json
+[
+  { "id": 1, "name": "Starter Shield", "premium": 20, "coverage": 1000 }
+]
+```
+
+### Status (Live Data)
+
+```json
+{
+  "rain": 20,
+  "temp": 33,
+  "aqi": 110,
+  "label": "Risk"
+}
+```
+
+### Payouts
+
+```json
+[
+  { "id": 101, "date": "2026-03-20", "reason": "Heavy Rain Detected", "amount": 300 }
+]
+```
+
 ---
-## Parametric Trigger System  
-Payouts are triggered automatically when predefined conditions are met.  
-Example Triggers:  
- Heavy Rainfall  
--	Rainfall > 40 mm/hour for 60+ minutes  
- Extreme Heat  
--	Temperature > 42°C  
- Air Pollution  
--	AQI > 350  
- Traffic Disruption  
--	Severe congestion for prolonged duration  
- Platform Downtime  
--	No order allocation due to system outage  
- These triggers rely on objective real-world data, eliminating disputes.  
+
+## 💰 Payment Integration (Extensible)
+
+Frontend is ready for:
+
+* Razorpay
+* UPI
+* Any custom gateway
+
+### Flow:
+
+1. Backend creates payment order
+2. Frontend triggers gateway
+3. Backend verifies payment
+4. Plan activated after success
+
 ---
-## AI Integration  
-1. Dynamic Premium Calculation  
--	Uses ML models to assess zone risk  
--	Inputs:  
-	Weather patterns  
-	Pollution levels  
-	Traffic trends  
-	Historical disruptions  
- Outputs optimized weekly premium  
+
+## 🌟 Features Implemented
+
+* 🔐 Login / Register UI
+* 📊 Dashboard with real-time environmental data
+* 📍 Live location with city detection
+* 📦 Insurance plan selection
+* 💳 Payment simulation system
+* 💰 Payout trigger simulation
+* 📜 Payout history tracking
+* 📡 Live monitoring page
+* 🔄 Global state + persistence
+* ⚡ Responsive UI + animations
+* 🚨 Error handling + loaders
+
 ---
-2. Fraud Detection  
-Detects anomalies such as:  
--	Claims outside delivery zone  
--	Abnormal claim frequency  
--	GPS manipulation  
- Assigns fraud risk score before payout  
+
+## 🤝 Team Collaboration
+
+This frontend is designed to integrate seamlessly with backend services.
+
+### Backend Team Responsibilities:
+
+* Implement REST APIs
+* Handle authentication (JWT)
+* Manage payout logic
+* Integrate payment gateway
+* Connect database
+
 ---
-3. Predictive Risk Analytics  
--	Forecasts future disruptions  
--	Helps adjust premiums dynamically  
--	Improves system sustainability  
+
+## 🧪 Demo Capability
+
+* Simulated payout trigger available
+* Mock API mode enabled for testing
+* Easy switch to real backend
+
 ---
-## Platform Workflow  
- End-to-End Flow:  
-User Registration → Plan Selection → Premium Payment → Coverage Activation  
-        ↓  
-Real-Time API Monitoring → Trigger Detection → Loss Calculation → Auto Payout  
-Step-by-Step:  
-1.	Worker registers  
-2.	Selects weekly plan  
-3.	System calculates premium  
-4.	Coverage activated  
-5.	APIs monitor conditions continuously  
-6.	Trigger condition met  
-7.	AI estimates income loss  
-8.	Payout processed  
+
+## 🔐 Security Note
+
+* `.env` is not included in repository
+* Use `.env.example` as reference
+* API keys must be configured locally
+
 ---
-## System Components  
- Worker Interface  
--	Register/login  
--	Activate plans  
--	View coverage  
--	Track payouts  
+
+## 🚀 Future Enhancements
+
+* Auto payout based on real-time thresholds
+* AI-based risk prediction
+* Map integration
+* Push notifications
+* Advanced analytics dashboard
+
 ---
- Risk Assessment Engine  
--	Calculates zone-based risk score  
+
+## 🏆 Hackathon Value
+
+This project demonstrates:
+
+* Real-world problem solving
+* Scalable frontend architecture
+* API-ready design
+* Production-level UI/UX
+
 ---
- Parametric Trigger Engine  
--	Detects disruption events  
----
- AI Analytics Layer  
--	Premium calculation  
--	Fraud detection  
--	Risk prediction  
----
- Payment Simulation Module  
--	Simulates payout via Razorpay / UPI  
----
-## Technology Stack  
-Frontend  
--	JavaScript   
--	React  
-Backend  
--	Java (Spring Boot)  
-AI / ML  
--	Python  
--	Scikit-learn  
-Database  
--	MySQL  
----
- External APIs (Real / Mock)  
--	Weather API (e.g., OpenWeather)  
--	Traffic Data API (e.g., Google Maps)  
--	Pollution API (AQI data sources)  
----
-Payments  
--	Razorpay Sandbox  
--	UPI Simulator  
----
-## Platform Choice  
- Selected Platform: Mobile-First Approach  
-Justification:  
--	Delivery workers primarily use smartphones  
--	Real-time alerts required  
--	Easy onboarding during work hours  
--	Location tracking integration  
- Admin features can be extended via web dashboard later.  
----
-## Innovation Beyond the Base Problem  
--	AI-driven premium personalization  
--	Predictive disruption modeling  
--	Intelligent fraud detection  
--	Fully automated claim triggering  
--	Real-time analytics dashboard  
----
-## Development Plan  
-Phase 1  
--	Research  
--	System design  
--	Planning  
----
-Phase 2  
--	User onboarding  
--	Policy management  
--	Premium calculation  
--	Trigger system  
----
-Phase 3  
--	Fraud detection  
--	Automated payouts  
--	Analytics dashboard  
--	Final demo  
----
-## Conclusion  
-This platform introduces a scalable, AI-driven parametric insurance model tailored for gig economy workers. By removing manual claims and leveraging real-time data, it ensures fast, transparent, and reliable income protection.  
+
+## 📢 Final Note
+
+👉 This is a **frontend-complete system**
+👉 Backend + database will be integrated by team members
+👉 Designed for **real-world deployment readiness**
