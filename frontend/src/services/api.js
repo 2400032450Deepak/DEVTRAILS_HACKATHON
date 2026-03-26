@@ -290,6 +290,31 @@ export const loginUser = async (payload) => {
   });
 };
 
+export const loginWithEmailPassword = async ({ email, password }) => {
+  return withFallback(
+    async () => {
+      const response = await apiClient.post("/login", { email, password });
+      return response.data;
+    },
+    async () => {
+      await mockDelay(700);
+      if (!email || !password) {
+        throw new Error("Invalid email or password");
+      }
+      return {
+        token: "mock-jwt-token",
+        user: {
+          id: Date.now(),
+          name: "Delivery Partner",
+          contact: email
+        }
+      };
+    }
+  ).catch((error) => {
+    throw new Error(readApiError(error, "Unable to login. Please try again."));
+  });
+};
+
 // Backend will handle OTP generation and verification.
 export const sendOtp = async (phone) => {
   if (USE_MOCK_API) {
