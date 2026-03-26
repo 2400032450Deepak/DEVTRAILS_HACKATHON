@@ -28,4 +28,17 @@ public class PlanService {
         userPlanRepository.save(userPlan);
         return "Plan activated successfully";
     }
+
+    public String createPlan(String name, int premium, int coverage, String email) {
+
+        if (!email.equals("admin@devtrails.com")) {
+            return "Access denied";
+        }
+
+        Plan plan = new Plan(name, premium, coverage);
+        planRepository.save(plan);
+
+        return "Plan created successfully";
+    }
+
 }
