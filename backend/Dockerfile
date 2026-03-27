@@ -1,5 +1,6 @@
 # backend/Dockerfile
-FROM maven:3.8.4-openjdk-17-slim AS build
+
+FROM eclipse-temurin:17-jdk-jammy AS build
 
 WORKDIR /app
 
@@ -11,7 +12,7 @@ COPY pom.xml .
 # Make mvnw executable
 RUN chmod +x mvnw
 
-# Download dependencies
+# Download dependencies (cache layer)
 RUN ./mvnw dependency:go-offline -B
 
 # Copy source code
@@ -20,8 +21,10 @@ COPY src src
 # Build the application
 RUN ./mvnw clean package -DskipTests
 
-# Stage 2: Run the application - Use correct image name
-FROM openjdk:17-slim
+# -----------------------------
+# Stage 2: Run the application
+# -----------------------------
+FROM eclipse-temurin:17-jdk-jammy
 
 WORKDIR /app
 
