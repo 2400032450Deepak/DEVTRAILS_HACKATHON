@@ -20,12 +20,12 @@ COPY src src
 # Build the application
 RUN ./mvnw clean package -DskipTests
 
-# Stage 2: Run the application
-FROM openjdk:17-jdk-slim
+# Stage 2: Run the application - Use eclipse-temurin (official OpenJDK)
+FROM eclipse-temurin:17-jdk-slim
 
 WORKDIR /app
 
-# Copy the built JAR file with exact name
+# Copy the built JAR file
 COPY --from=build /app/target/*.jar app.jar
 
 # Expose port
