@@ -1,8 +1,8 @@
 ﻿import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { FiShield, FiMail, FiLock } from "react-icons/fi";
-import { loginWithEmailPassword } from "../services/api";
+import { FiShield, FiLock, FiSmartphone } from "react-icons/fi";
+import { loginUser } from "../services/api";
 import Loader from "../components/Loader";
 import AnimatedPage from "../components/AnimatedPage";
 import MotionButton from "../components/MotionButton";
@@ -11,25 +11,27 @@ import { useApp } from "../hooks/useApp";
 
 const inputClass =
   "w-full rounded-2xl border border-white/15 bg-slate-900/50 px-4 py-3 text-base text-white outline-none transition focus:border-cyan-300 focus:shadow-[0_0_0_3px_rgba(34,211,238,0.2)]";
-const ADMIN_EMAIL = "admin@devtrails.com";
+
+const ADMIN_PHONE = "+919876543210";
 const ADMIN_PASSWORD = "devtrail@422";
 
 const AuthPage = () => {
   const { actions } = useApp();
-  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [countryCode, setCountryCode] = useState("+91");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  const isPhoneValid = phone.length >= 8;
   const isPasswordValid = password.trim().length >= 6;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
 
-    if (!isEmailValid) {
-      setError("Enter a valid email address.");
+    if (!isPhoneValid) {
+      setError("Enter a valid phone number.");
       return;
     }
 
@@ -40,8 +42,11 @@ const AuthPage = () => {
 
     setLoading(true);
     try {
-      const normalizedEmail = email.trim().toLowerCase();
-      const isAdminLogin = normalizedEmail === ADMIN_EMAIL && password === ADMIN_PASSWORD;
+      const formattedPhone = `${countryCode}${phone}`;
+      console.log("🔐 Attempting login with:", formattedPhone);
+
+      const isAdminLogin =
+        formattedPhone === ADMIN_PHONE && password === ADMIN_PASSWORD;
 
       if (isAdminLogin) {
         const adminPayload = {
@@ -49,17 +54,40 @@ const AuthPage = () => {
           user: {
             id: "admin-1",
             name: "DeliverShield Admin",
-            contact: ADMIN_EMAIL
+            contact: ADMIN_PHONE
           }
         };
         actions.login(adminPayload, { redirectTo: "/admin", isAdmin: true });
         return;
       }
 
-      const result = await loginWithEmailPassword({ email: email.trim(), password });
-      actions.login(result);
+      const result = await loginUser({
+        phone: formattedPhone,
+        password
+      });
+
+      // ✅ Check if login was successful
+      if (result.error) {
+        setError(result.error);
+        setLoading(false);
+        return;
+      }
+
+      // ✅ Only login if we have token and user
+      if (result.token && result.user) {
+        actions.login(result);
+      } else {
+        setError("Invalid response from server");
+      }
+      
     } catch (apiError) {
-      setError(apiError.message || "Unable to login. Please try again.");
+      console.error("Login error:", apiError);
+      // ✅ Show specific error message from backend
+      if (apiError.message) {
+        setError(apiError.message);
+      } else {
+        setError("Unable to login. Please check your credentials and try again.");
+      }
     } finally {
       setLoading(false);
     }
@@ -77,8 +105,6 @@ const AuthPage = () => {
         <div className="mb-8 text-center">
           <motion.div
             className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-cyan-300/20 text-cyan-200 shadow-glow"
-            animate={{ y: [0, -5, 0] }}
-            transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
           >
             <FiShield size={26} />
           </motion.div>
@@ -89,30 +115,47 @@ const AuthPage = () => {
         {loading ? (
           <Loader text="Signing you in..." />
         ) : (
-          <motion.form onSubmit={handleSubmit} className="space-y-5" initial="initial" animate="animate" variants={{ animate: { transition: { staggerChildren: 0.08 } } }}>
+          <motion.form onSubmit={handleSubmit} className="space-y-5">
+            
+            {/* Phone Field */}
             <motion.div variants={itemVariants}>
-              <label className="mb-1.5 block text-base text-slate-300">Email</label>
-              <div className="relative">
-                <FiMail className="pointer-events-none absolute left-3.5 top-4 text-slate-400" />
-                <input
-                  className={`${inputClass} pl-10`}
-                  type="email"
-                  autoComplete="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                />
+              <label className="mb-1.5 block text-base text-slate-300">Phone</label>
+
+              <div className="flex">
+                <select
+                  className="bg-slate-800 text-white px-2 rounded-l-md border border-slate-600"
+                  value={countryCode}
+                  onChange={(e) => setCountryCode(e.target.value)}
+                >
+                  <option value="+91">🇮🇳 +91</option>
+                  <option value="+1">🇺🇸 +1</option>
+                  <option value="+44">🇬🇧 +44</option>
+                </select>
+
+                <div className="relative w-full">
+                  <FiSmartphone className="absolute left-3.5 top-4 text-slate-400" />
+                  <input
+                    className={`${inputClass} pl-10 rounded-l-none`}
+                    inputMode="numeric"
+                    value={phone}
+                    onChange={(e) =>
+                      setPhone(e.target.value.replace(/\D/g, ""))
+                    }
+                    placeholder="Enter phone number"
+                    required
+                  />
+                </div>
               </div>
             </motion.div>
 
+            {/* Password */}
             <motion.div variants={itemVariants}>
               <label className="mb-1.5 block text-base text-slate-300">Password</label>
               <div className="relative">
-                <FiLock className="pointer-events-none absolute left-3.5 top-4 text-slate-400" />
+                <FiLock className="absolute left-3.5 top-4 text-slate-400" />
                 <input
                   className={`${inputClass} pl-10`}
                   type="password"
-                  autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter password"
@@ -120,24 +163,35 @@ const AuthPage = () => {
               </div>
             </motion.div>
 
-            {error ? <p className="text-sm text-danger">{error}</p> : null}
+            {/* Error Message - More Visible */}
+            {error && (
+              <motion.div 
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="p-3 rounded-xl bg-red-500/20 border border-red-500/50"
+              >
+                <p className="text-sm text-red-400 text-center font-medium">
+                  ❌ {error}
+                </p>
+              </motion.div>
+            )}
 
             <motion.div variants={itemVariants}>
               <MotionButton
                 type="submit"
-                disabled={!isEmailValid || !isPasswordValid || loading}
-                className="relative w-full overflow-hidden rounded-xl bg-gradient-to-r from-cyan-300 to-teal-300 px-4 py-2.5 font-semibold text-slate-900 shadow-glow disabled:cursor-not-allowed disabled:opacity-70"
+                disabled={!isPhoneValid || !isPasswordValid}
+                className="w-full rounded-xl bg-gradient-to-r from-cyan-300 to-teal-300 py-2.5 font-semibold text-slate-900"
               >
-                <span className="shimmer absolute inset-0 opacity-50" />
-                <span className="relative">Login</span>
+                Login
               </MotionButton>
             </motion.div>
 
             <motion.div variants={itemVariants}>
-              <Link to="/register" className="block text-center text-base text-cyan-200 underline underline-offset-4 hover:text-cyan-100">
+              <Link to="/register" className="block text-center text-cyan-200 underline">
                 New user? Register
               </Link>
             </motion.div>
+
           </motion.form>
         )}
       </motion.div>
@@ -146,4 +200,3 @@ const AuthPage = () => {
 };
 
 export default AuthPage;
-

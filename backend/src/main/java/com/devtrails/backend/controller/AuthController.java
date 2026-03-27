@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/auth")
+@RequestMapping("/api/auth")
 public class AuthController {
 
     private final AuthService authService;
@@ -20,13 +20,32 @@ public class AuthController {
 
     @PostMapping("/register")
     public String register(@RequestBody RegisterRequest request) {
-        User user = new User(request.name, request.email, request.password);
+        System.out.println("📝 Registration request for: " + request.phone);
+        
+        // Normalize phone
+        String phone = request.phone;
+        if (phone != null && !phone.startsWith("+") && phone.matches("\\d{10}")) {
+            phone = "+91" + phone;
+        }
+        
+        User user = new User(
+            request.name,
+            request.email,
+            request.password,
+            phone  // Use normalized phone
+        );
+        
         return authService.register(user);
     }
 
     @PostMapping("/login")
     public Map<String, Object> login(@RequestBody LoginRequest request) {
-        return authService.login(request.email, request.password);
+        System.out.println("🔐 Login request received");
+        System.out.println("   Identifier: " + request.phone);
+        System.out.println("   Password: " + request.password);
+        
+        // Pass both identifier and password to AuthService
+        return authService.login(request.phone, request.password);
     }
 
     @GetMapping("/health")

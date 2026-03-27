@@ -6,6 +6,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 
 @RestController
+@RequestMapping("/api")  // ← ADDED /api prefix
 public class StatusController {
 
     private final StatusService statusService;

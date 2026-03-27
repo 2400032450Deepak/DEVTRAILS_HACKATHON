@@ -6,7 +6,6 @@ const USE_MOCK_API = (process.env.REACT_APP_USE_MOCK_API || "true") === "true";
 // NOTE: Frontend keys are exposed at build time. In production, proxy weather calls from backend.
 const OPEN_WEATHER_API_KEY = process.env.REACT_APP_OPENWEATHER_API_KEY || "";
 const MISSING_API_KEY_MESSAGE = "Live weather unavailable";
-console.log("API KEY:", process.env.REACT_APP_OPENWEATHER_API_KEY);
 const DEFAULT_COORDS = {
   lat: Number(process.env.REACT_APP_DEFAULT_LAT || 28.6139),
   lon: Number(process.env.REACT_APP_DEFAULT_LON || 77.209)
@@ -268,10 +267,11 @@ export const getLiveEnvironmentalData = async ({ forceRefresh = false, locationC
   }
 };
 
+// ✅ FIXED: Updated to match Spring Boot endpoint /api/auth/login
 export const loginUser = async (payload) => {
   return withFallback(
     async () => {
-      const response = await apiClient.post("/login", payload);
+      const response = await apiClient.post("/auth/login", payload);
       return response.data;
     },
     async () => {
@@ -290,10 +290,11 @@ export const loginUser = async (payload) => {
   });
 };
 
+// ✅ FIXED: Updated to match Spring Boot endpoint /api/auth/login (email/password version)
 export const loginWithEmailPassword = async ({ email, password }) => {
   return withFallback(
     async () => {
-      const response = await apiClient.post("/login", { email, password });
+      const response = await apiClient.post("/auth/login", { email, password });
       return response.data;
     },
     async () => {
@@ -315,10 +316,11 @@ export const loginWithEmailPassword = async ({ email, password }) => {
   });
 };
 
+// ✅ FIXED: Updated to match Spring Boot endpoint /api/auth/register
 export const registerUser = async (payload) => {
   return withFallback(
     async () => {
-      const response = await apiClient.post("/register", payload);
+      const response = await apiClient.post("/auth/register", payload);
       return response.data;
     },
     async () => {
@@ -381,6 +383,7 @@ export const verifyOtp = async (phone, otp) => {
   }
 };
 
+// ✅ FIXED: Plans endpoint already matches /api/plans
 export const getPlans = async () => {
   return withFallback(
     async () => {
@@ -396,6 +399,7 @@ export const getPlans = async () => {
   });
 };
 
+// ✅ FIXED: Activate plan endpoint matches /api/activate-plan
 export const activatePlan = async (payload) => {
   return withFallback(
     async () => {
@@ -421,6 +425,7 @@ export const getStatus = async () => {
   return getLiveEnvironmentalData();
 };
 
+// ✅ FIXED: Payouts endpoint matches /api/payouts
 export const getPayouts = async () => {
   return withFallback(
     async () => {

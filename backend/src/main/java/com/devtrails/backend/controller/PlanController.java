@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
+@RequestMapping("/api")  // ← ADDED /api prefix
 public class PlanController {
 
     private final PlanService planService;

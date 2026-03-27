@@ -1,7 +1,7 @@
 ﻿import React, { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { FiShield, FiUser, FiSmartphone, FiMail } from "react-icons/fi";
+import { FiShield, FiUser, FiSmartphone, FiMail, FiLock, FiEye, FiEyeOff } from "react-icons/fi";
 import { registerUser } from "../services/api";
 import Loader from "../components/Loader";
 import AnimatedPage from "../components/AnimatedPage";
@@ -13,22 +13,31 @@ const inputClass =
   "w-full rounded-2xl border border-white/15 bg-slate-900/50 px-4 py-3 text-base text-white outline-none transition focus:border-cyan-300 focus:shadow-[0_0_0_3px_rgba(34,211,238,0.2)]";
 
 const RegisterPage = () => {
+  const [countryCode, setCountryCode] = useState("+91");
   const navigate = useNavigate();
   const { actions } = useApp();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const normalizedPhone = useMemo(() => phone.replace(/\D/g, "").slice(0, 10), [phone]);
+  const normalizedPhone = useMemo(() => phone.replace(/\D/g, ""), [phone]);
+const fullPhone = `${countryCode}${normalizedPhone}`;
   const trimmedName = name.trim();
   const trimmedEmail = email.trim();
 
   const isNameValid = trimmedName.length > 0;
-  const isPhoneValid = /^\d{10}$/.test(normalizedPhone);
+  const isPhoneValid = normalizedPhone.length >= 8 && normalizedPhone.length <= 12;
   const isEmailValid = trimmedEmail === "" || /^[^\s@]+@gmail\.com$/i.test(trimmedEmail);
-  const canSubmit = isNameValid && isPhoneValid && isEmailValid && !loading;
+  const isPasswordValid = password.length >= 6;
+  const isConfirmPasswordValid = password === confirmPassword;
+  
+  const canSubmit = isNameValid && isPhoneValid && isEmailValid && isPasswordValid && isConfirmPasswordValid && !loading;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -39,11 +48,19 @@ const RegisterPage = () => {
       return;
     }
     if (!isPhoneValid) {
-      setError("Enter a valid 10-digit phone number.");
+      setError("Enter a valid phone number.");
       return;
     }
     if (!isEmailValid) {
       setError("Enter a valid Gmail address or leave email empty.");
+      return;
+    }
+    if (!isPasswordValid) {
+      setError("Password must be at least 6 characters.");
+      return;
+    }
+    if (!isConfirmPasswordValid) {
+      setError("Passwords do not match.");
       return;
     }
 
@@ -51,8 +68,9 @@ const RegisterPage = () => {
     try {
       await registerUser({
         name: trimmedName,
-        phone: normalizedPhone,
-        ...(trimmedEmail ? { email: trimmedEmail } : {})
+        phone: fullPhone, // ✅ IMPORTANT
+        ...(trimmedEmail ? { email: trimmedEmail } : {}),
+        password: password
       });
       actions.notify("Registration successful. Please login.", "success");
       navigate("/");
@@ -89,25 +107,51 @@ const RegisterPage = () => {
         ) : (
           <motion.form onSubmit={handleSubmit} className="space-y-5" initial="initial" animate="animate" variants={{ animate: { transition: { staggerChildren: 0.08 } } }}>
             <motion.div variants={itemVariants}>
-              <label className="mb-1.5 block text-base text-slate-300">Name</label>
+              <label className="mb-1.5 block text-base text-slate-300">Name *</label>
               <div className="relative">
                 <FiUser className="pointer-events-none absolute left-3.5 top-4 text-slate-400" />
-                <input className={`${inputClass} pl-10`} type="text" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Enter your full name" />
+                <input 
+                  className={`${inputClass} pl-10`} 
+                  type="text" 
+                  autoComplete="name" 
+                  value={name} 
+                  onChange={(e) => setName(e.target.value)} 
+                  placeholder="Enter your full name" 
+                  required
+                />
               </div>
             </motion.div>
 
             <motion.div variants={itemVariants}>
-              <label className="mb-1.5 block text-base text-slate-300">Phone</label>
-              <div className="relative">
-                <FiSmartphone className="pointer-events-none absolute left-3.5 top-4 text-slate-400" />
+              <label className="mb-1.5 block text-base text-slate-300">
+                Phone *
+              </label>
+
+              <div className="flex">
+                
+                {/* Country Code Dropdown */}
+                <select
+                  className="bg-slate-800 text-white px-2 rounded-l-md border border-slate-600"
+                  value={countryCode}
+                  onChange={(e) => setCountryCode(e.target.value)}
+                >
+                  <option value="+91">🇮🇳 +91</option>
+                  <option value="+1">🇺🇸 +1</option>
+                  <option value="+44">🇬🇧 +44</option>
+                </select>
+
+                {/* Phone Input */}
                 <input
-                  className={`${inputClass} pl-10`}
+                  className={`${inputClass} rounded-l-none`}
                   inputMode="numeric"
                   autoComplete="tel"
-                  value={normalizedPhone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  maxLength={10}
-                  placeholder="9876543210"
+                  value={phone}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/\D/g, "");
+                    setPhone(value);
+                  }}
+                  placeholder="Enter phone number"
+                  required
                 />
               </div>
             </motion.div>
@@ -127,7 +171,65 @@ const RegisterPage = () => {
               </div>
             </motion.div>
 
-            {error ? <p className="text-sm text-danger">{error}</p> : null}
+            {/* Password Field */}
+            <motion.div variants={itemVariants}>
+              <label className="mb-1.5 block text-base text-slate-300">Password *</label>
+              <div className="relative">
+                <FiLock className="pointer-events-none absolute left-3.5 top-4 text-slate-400" />
+                <input
+                  className={`${inputClass} pl-10 pr-12`}
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="new-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Min. 6 characters"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3.5 top-4 text-slate-400 hover:text-slate-300"
+                >
+                  {showPassword ? <FiEyeOff size={20} /> : <FiEye size={20} />}
+                </button>
+              </div>
+              {password && !isPasswordValid && (
+                <p className="mt-1 text-xs text-yellow-400">Password must be at least 6 characters</p>
+              )}
+            </motion.div>
+
+            {/* Confirm Password Field */}
+            <motion.div variants={itemVariants}>
+              <label className="mb-1.5 block text-base text-slate-300">Confirm Password *</label>
+              <div className="relative">
+                <FiLock className="pointer-events-none absolute left-3.5 top-4 text-slate-400" />
+                <input
+                  className={`${inputClass} pl-10 pr-12`}
+                  type={showConfirmPassword ? "text" : "password"}
+                  autoComplete="new-password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Confirm your password"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3.5 top-4 text-slate-400 hover:text-slate-300"
+                >
+                  {showConfirmPassword ? <FiEyeOff size={20} /> : <FiEye size={20} />}
+                </button>
+              </div>
+              {confirmPassword && !isConfirmPasswordValid && (
+                <p className="mt-1 text-xs text-red-400">Passwords do not match</p>
+              )}
+            </motion.div>
+
+            {error ? (
+              <motion.div variants={itemVariants} className="p-3 rounded-xl bg-red-500/10 border border-red-500/30">
+                <p className="text-sm text-red-400 text-center">{error}</p>
+              </motion.div>
+            ) : null}
 
             <motion.div variants={itemVariants} className="space-y-2">
               <MotionButton
@@ -151,4 +253,3 @@ const RegisterPage = () => {
 };
 
 export default RegisterPage;
-
