@@ -1,8 +1,10 @@
-﻿import React, { useEffect, useState } from "react";
+﻿// Update the imports at the top
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { FiCloudRain, FiThermometer, FiWind, FiShield, FiLogOut, FiUser, FiChevronDown } from "react-icons/fi";
+import { FiCloudRain, FiThermometer, FiWind, FiShield, FiLogOut, FiUser, FiChevronDown, FiAlertCircle } from "react-icons/fi";
 import { getLiveEnvironmentalData } from "../services/api";
+import { predictRiskScore } from "../services/ai"; // Add this import
 import AppHeader from "../components/AppHeader";
 import StatCard from "../components/StatCard";
 import StatusBadge from "../components/StatusBadge";
@@ -22,6 +24,7 @@ const DashboardPage = () => {
   const { isLocationEnabled, locationCoords, cityName, locationLoading, locationError, enableLiveLocation, disableLiveLocation } = useLocationState();
 
   const [envData, setEnvData] = useState(null);
+  const [riskData, setRiskData] = useState(null); // Add AI risk data state
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [profileOpen, setProfileOpen] = useState(false);
@@ -44,6 +47,11 @@ const DashboardPage = () => {
 
       setEnvData(status);
       actions.setStatus(status.label || "Safe");
+      
+      // Add AI risk prediction
+      const risk = await predictRiskScore(status);
+      setRiskData(risk);
+      
       const trafficSamples = ["low", "moderate", "high"];
       const platformSamples = ["active", "inactive"];
       setTrafficLevel(trafficSamples[Math.floor(Math.random() * trafficSamples.length)]);
@@ -69,32 +77,38 @@ const DashboardPage = () => {
     document.documentElement.classList.toggle("dark", isDark);
   }, [themeMode]);
 
+  // Update sensor cards to include AI recommendations
   const sensorCards = envData
     ? [
         {
           title: "Rainfall",
           value: `${envData.rain} mm`,
-          trigger: envData.rain >= 15
+          trigger: envData.rain >= 15,
+          recommendation: envData.rain >= 40 ? "⚠️ Heavy rain - Consider postponing delivery" : envData.rain >= 15 ? "☔ Light rain - Carry rain gear" : null
         },
         {
           title: "Temperature",
           value: `${envData.temp}°C`,
-          trigger: envData.temp >= 35
+          trigger: envData.temp >= 35,
+          recommendation: envData.temp >= 40 ? "🔥 Extreme heat - Take frequent breaks" : envData.temp >= 35 ? "💧 High temperature - Stay hydrated" : null
         },
         {
           title: "AQI",
           value: `${envData.aqi}`,
-          trigger: envData.aqi >= 120
+          trigger: envData.aqi >= 120,
+          recommendation: envData.aqi >= 250 ? "😷 Hazardous - Wear N95 mask" : envData.aqi >= 120 ? "😷 Unhealthy - Limit exposure" : null
         },
         {
           title: "Traffic",
           value: trafficLevel.charAt(0).toUpperCase() + trafficLevel.slice(1),
-          trigger: trafficLevel === "high"
+          trigger: trafficLevel === "high",
+          recommendation: trafficLevel === "high" ? "🚗 Heavy traffic - Allow extra time" : null
         },
         {
           title: "Platform",
           value: platformStatus.charAt(0).toUpperCase() + platformStatus.slice(1),
-          trigger: platformStatus === "inactive"
+          trigger: platformStatus === "inactive",
+          recommendation: platformStatus === "inactive" ? "⚠️ Platform issues - Contact support" : null
         }
       ]
     : [];
@@ -106,6 +120,9 @@ const DashboardPage = () => {
 
     return () => clearInterval(interval);
   }, [isLocationEnabled, locationCoords?.lat, locationCoords?.lon]);
+
+  // Calculate AI risk percentage
+  const aiRiskPercentage = riskData?.score || 72;
 
   return (
     <AnimatedPage>
@@ -293,6 +310,12 @@ const DashboardPage = () => {
                   <p className={`mt-2 text-sm font-semibold ${isTriggered ? "text-red-600" : isLightMode ? "text-emerald-700" : "text-emerald-300"}`}>
                     {isTriggered ? "Trigger active" : "Normal"}
                   </p>
+                  {sensor.recommendation && isTriggered && (
+                    <p className="mt-2 text-xs flex items-center gap-1 text-yellow-600">
+                      <FiAlertCircle size={12} />
+                      {sensor.recommendation}
+                    </p>
+                  )}
                 </div>
               );
             })}
@@ -318,33 +341,60 @@ const DashboardPage = () => {
         </MotionButton>
       </motion.div>
 
+      {/* Updated AI Risk Intelligence Section */}
       <motion.div variants={itemVariants} className={`mt-4 rounded-2xl p-5 ${isLightMode ? "border border-slate-200 bg-white shadow-lg" : "border border-white/10 bg-gradient-to-r from-[#0f1b32] via-[#101d36] to-[#1a283c] shadow-cyan"}`}>
         <p className={`mb-4 text-3xl font-bold ${isLightMode ? "text-slate-900" : "text-white"}`}>AI Risk Intelligence</p>
-        <div className="flex items-center justify-between gap-6">
+        
+        {/* AI Risk Score and Recommendations */}
+        <div className="flex items-center justify-between gap-6 mb-4">
           <div className="relative flex h-32 w-32 items-center justify-center rounded-full">
             <div
               className="absolute inset-0 rounded-full"
               style={{
-                background: "conic-gradient(#60a5fa 0deg, #60a5fa 259deg, rgba(96,165,250,0.15) 259deg)"
+                background: `conic-gradient(#60a5fa 0deg, #60a5fa ${aiRiskPercentage * 3.6}deg, rgba(96,165,250,0.15) ${aiRiskPercentage * 3.6}deg)`
               }}
             />
             <div className={`absolute inset-[9px] rounded-full ${isLightMode ? "bg-white" : "bg-[#10213c]"}`} />
-            <span className={`relative text-4xl font-extrabold ${isLightMode ? "text-slate-900" : "text-white"}`}>72%</span>
+            <span className={`relative text-4xl font-extrabold ${isLightMode ? "text-slate-900" : "text-white"}`}>{aiRiskPercentage}%</span>
           </div>
 
-          <div className="flex-1 text-right">
-            <p className={`text-2xl font-semibold ${isLightMode ? "text-slate-700" : "text-slate-400"}`}>AI Forecast: High disruption probability</p>
-            <label className={`mt-2 inline-flex items-center gap-2 text-xl font-medium ${isLightMode ? "text-slate-800" : "text-white"}`}>
-              <input
-                type="checkbox"
-                checked={simulateGpsAnomaly}
-                onChange={(e) => setSimulateGpsAnomaly(e.target.checked)}
-                className={`h-4 w-4 rounded ${isLightMode ? "border-slate-400 bg-white" : "border-white/30 bg-slate-900/70"}`}
-              />
-              Simulate GPS anomaly
-            </label>
+          <div className="flex-1">
+            <p className={`text-lg font-semibold ${isLightMode ? "text-slate-800" : "text-slate-300"}`}>
+              AI Forecast: {riskData?.level || "Medium"} risk probability
+            </p>
+            <p className={`text-sm mt-1 ${isLightMode ? "text-slate-600" : "text-slate-400"}`}>
+              Based on weather, AQI, and traffic conditions
+            </p>
           </div>
         </div>
+
+        {/* AI Recommendations */}
+        {riskData?.recommendations && riskData.recommendations.length > 0 && (
+          <div className="mt-3 pt-3 border-t border-white/10">
+            <p className={`text-sm font-semibold mb-2 flex items-center gap-2 ${isLightMode ? "text-slate-700" : "text-cyan-300"}`}>
+              <FiAlertCircle size={14} />
+              AI Safety Recommendations
+            </p>
+            <ul className="space-y-1">
+              {riskData.recommendations.slice(0, 3).map((rec, idx) => (
+                <li key={idx} className={`text-xs flex items-start gap-2 ${isLightMode ? "text-slate-600" : "text-slate-300"}`}>
+                  <span className="text-cyan-400">•</span>
+                  {rec}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <label className={`mt-4 flex items-center gap-2 text-sm font-medium ${isLightMode ? "text-slate-800" : "text-white"}`}>
+          <input
+            type="checkbox"
+            checked={simulateGpsAnomaly}
+            onChange={(e) => setSimulateGpsAnomaly(e.target.checked)}
+            className={`h-4 w-4 rounded ${isLightMode ? "border-slate-400 bg-white" : "border-white/30 bg-slate-900/70"}`}
+          />
+          Simulate GPS anomaly (demo)
+        </label>
       </motion.div>
 
       <motion.div variants={itemVariants} className={`mt-3 rounded-2xl border p-4 text-sm ${isLightMode ? "border-slate-300 bg-white text-slate-700" : "border-white/10 bg-[#0f1b32]/90 text-slate-300"}`}>
