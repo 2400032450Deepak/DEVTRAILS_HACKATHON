@@ -1,13 +1,15 @@
 # backend/Dockerfile
-FROM openjdk:17-jdk-slim
+FROM maven:3.8.4-openjdk-17-slim AS build
 
-# Set working directory
 WORKDIR /app
 
-# Copy Maven wrapper and pom.xml
+# Copy Maven files
 COPY mvnw .
 COPY .mvn .mvn
 COPY pom.xml .
+
+# Make mvnw executable
+RUN chmod +x mvnw
 
 # Download dependencies
 RUN ./mvnw dependency:go-offline -B
@@ -16,10 +18,18 @@ RUN ./mvnw dependency:go-offline -B
 COPY src src
 
 # Build the application
-RUN ./mvnw package -DskipTests
+RUN ./mvnw clean package -DskipTests
+
+# Stage 2: Run the application - Use eclipse-temurin (official OpenJDK)
+FROM eclipse-temurin:17-jdk-slim
+
+WORKDIR /app
+
+# Copy the built JAR file
+COPY --from=build /app/target/*.jar app.jar
 
 # Expose port
 EXPOSE 8080
 
 # Run the application
-CMD ["java", "-jar", "target/*.jar"]
+CMD ["java", "-jar", "app.jar"]
