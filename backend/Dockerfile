@@ -20,8 +20,8 @@ COPY src src
 # Build the application
 RUN ./mvnw clean package -DskipTests
 
-# Stage 2: Run the application - Use eclipse-temurin (official OpenJDK)
-FROM eclipse-temurin:17-jdk-slim
+# Stage 2: Run the application - Use correct image name
+FROM openjdk:17-slim
 
 WORKDIR /app
 
