@@ -6,6 +6,8 @@ import com.devtrails.backend.model.User;
 import com.devtrails.backend.service.AuthService;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 @RestController
 @RequestMapping("/auth")
 public class AuthController {
@@ -23,10 +25,10 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public String login(@RequestBody LoginRequest request) {
+    public Map<String, Object> login(@RequestBody LoginRequest request) {
         return authService.login(request.email, request.password);
     }
-    
+
     @GetMapping("/health")
     public String health() {
         return "OK";

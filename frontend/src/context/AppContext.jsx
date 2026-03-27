@@ -51,7 +51,13 @@ export const AppProvider = ({ children }) => {
 
   const actions = useMemo(
     () => ({
-      login: (data) => {
+      login: (data, options = {}) => {
+        const { redirectTo = "/dashboard", isAdmin = false } = options;
+        if (isAdmin) {
+          localStorage.setItem("isAdmin", "true");
+        } else {
+          localStorage.removeItem("isAdmin");
+        }
         setState((prev) => {
           const next = {
             ...prev,
@@ -63,12 +69,13 @@ export const AppProvider = ({ children }) => {
           return next;
         });
         setToast({ message: "Welcome to DeliverShield AI", type: "success" });
-        navigate("/dashboard");
+        navigate(redirectTo);
       },
       logout: () => {
         setState(initialState);
         localStorage.removeItem(STORAGE_KEY);
         localStorage.removeItem(TOKEN_KEY);
+        localStorage.removeItem("isAdmin");
         navigate("/");
       },
       setSelectedPlan: (plan) => {

@@ -7,7 +7,7 @@ const MotionButton = ({ children, className = "", ...props }) => {
       whileHover={{ scale: 1.03, y: -1 }}
       whileTap={{ scale: 0.97 }}
       transition={{ duration: 0.2, ease: "easeInOut" }}
-      className={className}
+      className={`min-h-[46px] text-[0.95rem] ${className}`}
       {...props}
     >
       {children}

@@ -12,6 +12,7 @@ const PayoutPage = () => {
   const { state, actions } = useApp();
   const latest = state.latestPayout || state.payouts[0];
   const [flash, setFlash] = useState(false);
+  const isLightMode = !document.documentElement.classList.contains("dark");
 
   useEffect(() => {
     if (!latest) {
@@ -36,10 +37,16 @@ const PayoutPage = () => {
 
   return (
     <AnimatedPage>
-      <AppHeader title="Payout Status" subtitle="Automatic payout updates based on trigger conditions" />
+      <div className={isLightMode ? "rounded-3xl bg-[#f8fafc] p-4 text-[#1f2937]" : ""}>
+      <AppHeader
+        title="Payout Status"
+        subtitle="Automatic payout updates based on trigger conditions"
+        titleClassName={isLightMode ? "text-black" : "text-white"}
+        subtitleClassName={isLightMode ? "!text-slate-800 font-semibold" : "!text-slate-300"}
+      />
 
       {latest ? (
-        <motion.div variants={itemVariants} animate={pulseGlow} className="gradient-border glass-panel relative overflow-hidden rounded-2xl p-5 shadow-cyan">
+        <motion.div variants={itemVariants} animate={pulseGlow} className={`gradient-border relative overflow-hidden rounded-2xl p-5 ${isLightMode ? "border border-slate-200 bg-white shadow-lg" : "glass-panel shadow-cyan"}`}>
           <AnimatePresence>
             {flash ? (
               <motion.div
@@ -57,33 +64,34 @@ const PayoutPage = () => {
             Trigger Event
           </div>
 
-          <p className="text-sm text-slate-300">Detected Event</p>
-          <h2 className="text-xl font-bold text-white">{latest.reason}</h2>
+          <p className={`text-sm ${isLightMode ? "text-slate-600" : "text-slate-300"}`}>Detected Event</p>
+          <h2 className={`text-xl font-bold ${isLightMode ? "text-slate-900" : "text-white"}`}>{latest.reason}</h2>
 
-          <p className="mt-3 text-sm text-slate-300">Payout Credited</p>
+          <p className={`mt-3 text-sm ${isLightMode ? "text-slate-600" : "text-slate-300"}`}>Payout Credited</p>
           <motion.p
             key={latest.id}
             initial={{ opacity: 0.3, y: 8, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ duration: 0.5, ease: "easeOut" }}
-            className="text-4xl font-extrabold text-cyan-200 drop-shadow-[0_0_16px_rgba(34,211,238,0.8)]"
+            className={`text-4xl font-extrabold ${isLightMode ? "text-cyan-700" : "text-cyan-200 drop-shadow-[0_0_16px_rgba(34,211,238,0.8)]"}`}
           >
             ₹<CountUp value={latest.amount} duration={1.5} />
           </motion.p>
 
-          <p className="mt-2 text-xs text-slate-400">Date: {latest.date}</p>
+          <p className={`mt-2 text-xs ${isLightMode ? "text-slate-500" : "text-slate-400"}`}>Date: {latest.date}</p>
         </motion.div>
       ) : (
-        <motion.div variants={itemVariants} className="glass-panel rounded-2xl p-5 text-center text-sm text-slate-300">
+        <motion.div variants={itemVariants} className={`rounded-2xl p-5 text-center text-sm ${isLightMode ? "border border-slate-200 bg-white text-slate-600 shadow-md" : "glass-panel text-slate-300"}`}>
           No payout has been triggered yet.
         </motion.div>
       )}
 
       <motion.div variants={itemVariants} className="mt-4">
-        <MotionButton onClick={simulateTrigger} className="w-full rounded-xl border border-cyan-300/40 bg-cyan-300/15 px-4 py-3 text-sm font-semibold text-cyan-100 shadow-glow">
+        <MotionButton onClick={simulateTrigger} className={`w-full rounded-xl px-4 py-3 text-sm font-semibold ${isLightMode ? "border border-cyan-200 bg-cyan-50 text-cyan-800 shadow-sm hover:bg-cyan-100" : "border border-cyan-300/40 bg-cyan-300/15 text-cyan-100 shadow-glow"}`}>
           Simulate Trigger
         </MotionButton>
       </motion.div>
+      </div>
     </AnimatedPage>
   );
 };

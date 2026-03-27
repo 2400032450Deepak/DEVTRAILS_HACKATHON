@@ -3,17 +3,20 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
+}
+
+html {
+  font-size: 17px;
 }
 
 body {
   margin: 0;
   font-family: "Sora", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-  background: radial-gradient(circle at 20% -10%, rgba(34, 211, 238, 0.22), transparent 35%),
-    radial-gradient(circle at 80% 120%, rgba(13, 148, 136, 0.18), transparent 45%),
-    linear-gradient(135deg, #020617 0%, #031529 42%, #02040b 100%);
+  background: linear-gradient(135deg, #f8fafc, #e0f2fe);
   min-height: 100vh;
-  color: #e2e8f0;
+  color: #0f172a;
+  line-height: 1.55;
 }
 
 * {
@@ -63,4 +66,9 @@ body {
   100% {
     left: 150%;
   }
+}
+
+h1,
+h2 {
+  line-height: 1.25;
 }
