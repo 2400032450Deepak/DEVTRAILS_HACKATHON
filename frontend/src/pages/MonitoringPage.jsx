@@ -20,6 +20,7 @@ const MonitoringPage = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const isLightMode = !document.documentElement.classList.contains("dark");
 
   const fetchData = async ({ forceRefresh = false } = {}) => {
     setLoading(true);
@@ -57,16 +58,22 @@ const MonitoringPage = () => {
 
   return (
     <AnimatedPage>
-      <AppHeader title="Live Monitoring" subtitle="Weather and air quality snapshot" />
+      <div className={isLightMode ? "rounded-3xl bg-[#f8fafc] p-4 text-[#1f2937]" : ""}>
+      <AppHeader
+        title="Live Monitoring"
+        subtitle="Weather and air quality snapshot"
+        titleClassName={isLightMode ? "text-black" : "text-white"}
+        subtitleClassName={isLightMode ? "!text-slate-800 font-semibold" : "!text-slate-300"}
+      />
 
       <div className="mb-3 space-y-1">
         {isLocationEnabled ? (
           <>
-            <p className="text-xs font-medium tracking-wide text-cyan-200/95">📍 Using live location</p>
-            <p className="text-xs font-medium tracking-wide text-slate-300">{cityName ? `📍 ${cityName}` : "Location detected"}</p>
+            <p className={`text-xs font-medium tracking-wide ${isLightMode ? "text-slate-700" : "text-cyan-200/95"}`}>📍 Using live location</p>
+            <p className={`text-xs font-medium tracking-wide ${isLightMode ? "text-slate-800" : "text-slate-300"}`}>{cityName ? `📍 ${cityName}` : "Location detected"}</p>
           </>
         ) : (
-          <p className="text-xs font-medium tracking-wide text-slate-300">Location disabled</p>
+          <p className={`text-xs font-medium tracking-wide ${isLightMode ? "text-slate-700" : "text-slate-300"}`}>Location disabled</p>
         )}
       </div>
 
@@ -76,7 +83,7 @@ const MonitoringPage = () => {
           <SkeletonCards />
         </div>
       ) : null}
-      {!loading && error ? <div className="mb-4 rounded-xl border border-danger/30 bg-danger/10 p-3 text-sm text-danger">{error}</div> : null}
+      {!loading && error ? <div className={`mb-4 rounded-xl p-3 text-sm ${isLightMode ? "border border-red-200 bg-red-50 text-red-700" : "border border-danger/30 bg-danger/10 text-danger"}`}>{error}</div> : null}
 
       {!loading && !error && data ? (
         <motion.div variants={listVariants} initial="initial" animate="animate" className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -86,9 +93,10 @@ const MonitoringPage = () => {
         </motion.div>
       ) : null}
 
-      <MotionButton onClick={() => fetchData({ forceRefresh: true })} className="glass-panel mt-4 w-full rounded-xl border border-white/15 px-4 py-3 text-sm font-semibold text-white">
+      <MotionButton onClick={() => fetchData({ forceRefresh: true })} className={`mt-4 w-full rounded-xl px-4 py-3 text-sm font-semibold ${isLightMode ? "border border-slate-300 bg-white text-slate-800 shadow-sm hover:bg-slate-50" : "glass-panel border border-white/15 text-white"}`}>
         Refresh Live Data
       </MotionButton>
+      </div>
     </AnimatedPage>
   );
 };

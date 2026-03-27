@@ -315,6 +315,26 @@ export const loginWithEmailPassword = async ({ email, password }) => {
   });
 };
 
+export const registerUser = async (payload) => {
+  return withFallback(
+    async () => {
+      const response = await apiClient.post("/register", payload);
+      return response.data;
+    },
+    async () => {
+      await mockDelay(800);
+      if (!payload?.name || !payload?.phone) {
+        throw new Error("Name and phone are required");
+      }
+      return {
+        message: "User registered successfully"
+      };
+    }
+  ).catch((error) => {
+    throw new Error(readApiError(error, "Unable to register. Please try again."));
+  });
+};
+
 // Backend will handle OTP generation and verification.
 export const sendOtp = async (phone) => {
   if (USE_MOCK_API) {

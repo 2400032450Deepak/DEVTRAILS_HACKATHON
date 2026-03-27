@@ -27,7 +27,7 @@ const DashboardPage = () => {
   const [profileOpen, setProfileOpen] = useState(false);
   const [themeOpen, setThemeOpen] = useState(false);
   const [simulateGpsAnomaly, setSimulateGpsAnomaly] = useState(false);
-  const [themeMode, setThemeMode] = useState("dark");
+  const [themeMode, setThemeMode] = useState("light");
   const [trafficLevel, setTrafficLevel] = useState("low");
   const [platformStatus, setPlatformStatus] = useState("active");
   const isLightMode = themeMode === "light";
@@ -63,6 +63,11 @@ const DashboardPage = () => {
   useEffect(() => {
     loadStatus({ forceRefresh: true });
   }, [isLocationEnabled, locationCoords?.lat, locationCoords?.lon]);
+
+  useEffect(() => {
+    const isDark = themeMode === "dark";
+    document.documentElement.classList.toggle("dark", isDark);
+  }, [themeMode]);
 
   const sensorCards = envData
     ? [
@@ -106,8 +111,11 @@ const DashboardPage = () => {
     <AnimatedPage>
       <div className={isLightMode ? "rounded-3xl bg-[#f8fafc] p-4 text-[#1f2937]" : ""}>
       <AppHeader
-        title="Dashboard"
+        title="Deliver Shield AI"
+        titleClassName={isLightMode ? "text-black" : "text-white"}
         subtitle={`Hi ${state.user?.name || "Partner"}, stay protected today.`}
+        subtitleClassName={isLightMode ? "!text-slate-900 font-semibold" : "!text-yellow-200 font-semibold"}
+
         rightSlot={
           <div className="mt-1 flex items-center gap-2">
             <div className="relative">
