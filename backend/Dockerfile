@@ -21,4 +21,4 @@ COPY --from=build /app/target/*.jar app.jar
 EXPOSE 8080
 
 # FIX: Bind to 0.0.0.0 and use PORT from Render
-CMD ["sh", "-c", "java -jar -Dserver.address=0.0.0.0 -Dserver.port=${PORT:-8080} app.jar"]
+CMD ["sh", "-c", "java -jar -Dserver.address=0.0.0.0 -Dserver.port=${PORT:-10000} app.jar"]
