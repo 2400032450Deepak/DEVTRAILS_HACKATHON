@@ -1,7 +1,7 @@
 ﻿import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { FiShield, FiLock, FiSmartphone } from "react-icons/fi";
+import { FiShield, FiLock, FiSmartphone, FiAlertCircle } from "react-icons/fi";
 import { loginUser } from "../services/api";
 import Loader from "../components/Loader";
 import AnimatedPage from "../components/AnimatedPage";
@@ -45,36 +45,41 @@ const AuthPage = () => {
       const formattedPhone = `${countryCode}${phone}`;
       console.log("🔐 Attempting login with:", formattedPhone);
 
-      const isAdminLogin =
-        formattedPhone === ADMIN_PHONE && password === ADMIN_PASSWORD;
+      // ✅ Check for admin login first
+      const isAdminLogin = formattedPhone === ADMIN_PHONE && password === ADMIN_PASSWORD;
 
       if (isAdminLogin) {
+        console.log("👑 Admin login detected!");
         const adminPayload = {
           token: "admin-session-token",
           user: {
             id: "admin-1",
             name: "DeliverShield Admin",
-            contact: ADMIN_PHONE
+            email: "admin@delivershield.com",
+            contact: ADMIN_PHONE,
+            role: "ADMIN"  // ✅ Add role for consistency
           }
         };
         actions.login(adminPayload, { redirectTo: "/admin", isAdmin: true });
         return;
       }
 
+      // ✅ Normal user login
       const result = await loginUser({
         phone: formattedPhone,
         password
       });
 
-      // ✅ Check if login was successful
+      // Check if login was successful
       if (result.error) {
         setError(result.error);
         setLoading(false);
         return;
       }
 
-      // ✅ Only login if we have token and user
+      // Only login if we have token and user
       if (result.token && result.user) {
+        console.log("✅ User login successful for:", result.user.name);
         actions.login(result);
       } else {
         setError("Invalid response from server");
@@ -82,7 +87,6 @@ const AuthPage = () => {
       
     } catch (apiError) {
       console.error("Login error:", apiError);
-      // ✅ Show specific error message from backend
       if (apiError.message) {
         setError(apiError.message);
       } else {
@@ -163,15 +167,16 @@ const AuthPage = () => {
               </div>
             </motion.div>
 
-            {/* Error Message - More Visible */}
+            {/* Error Message */}
             {error && (
               <motion.div 
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="p-3 rounded-xl bg-red-500/20 border border-red-500/50"
+                className="p-3 rounded-xl bg-red-500/20 border border-red-500/50 flex items-center gap-2"
               >
-                <p className="text-sm text-red-400 text-center font-medium">
-                  ❌ {error}
+                <FiAlertCircle className="text-red-400 flex-shrink-0" size={16} />
+                <p className="text-sm text-red-400 font-medium">
+                  {error}
                 </p>
               </motion.div>
             )}
@@ -180,14 +185,14 @@ const AuthPage = () => {
               <MotionButton
                 type="submit"
                 disabled={!isPhoneValid || !isPasswordValid}
-                className="w-full rounded-xl bg-gradient-to-r from-cyan-300 to-teal-300 py-2.5 font-semibold text-slate-900"
+                className="w-full rounded-xl bg-gradient-to-r from-cyan-300 to-teal-300 py-2.5 font-semibold text-slate-900 hover:from-cyan-400 hover:to-teal-400 transition"
               >
                 Login
               </MotionButton>
             </motion.div>
 
             <motion.div variants={itemVariants}>
-              <Link to="/register" className="block text-center text-cyan-200 underline">
+              <Link to="/register" className="block text-center text-cyan-200 underline hover:text-cyan-100 transition">
                 New user? Register
               </Link>
             </motion.div>
