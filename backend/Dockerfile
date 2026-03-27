@@ -1,5 +1,4 @@
 # backend/Dockerfile
-
 FROM eclipse-temurin:17-jdk-jammy AS build
 
 WORKDIR /app
@@ -21,9 +20,7 @@ COPY src src
 # Build the application
 RUN ./mvnw clean package -DskipTests
 
-# -----------------------------
 # Stage 2: Run the application
-# -----------------------------
 FROM eclipse-temurin:17-jdk-jammy
 
 WORKDIR /app
@@ -34,5 +31,5 @@ COPY --from=build /app/target/*.jar app.jar
 # Expose port
 EXPOSE 8080
 
-# Run the application
-CMD ["java", "-jar", "app.jar"]
+# Run the application with dynamic port
+CMD ["sh", "-c", "java -jar -Dserver.port=${PORT:-8080} app.jar"]
