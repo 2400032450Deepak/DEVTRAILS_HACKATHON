@@ -1,102 +1,238 @@
-﻿import React, { useEffect, useState } from "react";
+﻿// frontend/src/pages/PlansPage.jsx
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { FiShield } from "react-icons/fi";
-import { getPlans } from "../services/api";
-import AppHeader from "../components/AppHeader";
+import { FiShield, FiCheck, FiAlertCircle } from "react-icons/fi";
+import { getPlans, activatePlan } from "../services/api";
+import { useApp } from "../hooks/useApp";
 import Loader from "../components/Loader";
 import AnimatedPage from "../components/AnimatedPage";
+import AppHeader from "../components/AppHeader";
 import MotionButton from "../components/MotionButton";
-import { itemVariants, listVariants } from "../lib/motion";
-import { useApp } from "../hooks/useApp";
+import Toast from "../components/Toast";
 
 const PlansPage = () => {
+  const navigate = useNavigate();
   const { state, actions } = useApp();
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const navigate = useNavigate();
-  const isLightMode = !document.documentElement.classList.contains("dark");
+  const [selectedPlan, setSelectedPlan] = useState(null);
+  const [toast, setToast] = useState(null);
+  const [processingPayment, setProcessingPayment] = useState(false);
 
   useEffect(() => {
-    const loadPlans = async () => {
-      setError("");
-      try {
-        const list = await getPlans();
-        setPlans(list);
-      } catch (apiError) {
-        setError(apiError.message || "Unable to load plans");
-      } finally {
-        setLoading(false);
-      }
-    };
-
     loadPlans();
   }, []);
 
-  if (loading) {
-    return <Loader text="Loading plans..." />;
-  }
+  const loadPlans = async () => {
+    try {
+      setLoading(true);
+      const data = await getPlans();
+      setPlans(data);
+    } catch (error) {
+      showToast("Failed to load plans", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleActivatePlan = async (plan) => {
+    try {
+      setProcessingPayment(true);
+      showToast(`Processing payment for ${plan.name}...`, "info");
+      
+      // Step 1: Process payment
+      const paymentResponse = await fetch('http://localhost:8080/api/payment', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('deliverShieldToken')}`
+        },
+        body: JSON.stringify({
+          amount: plan.premium,
+          planId: plan.id,
+          gateway: 'SIMULATED',
+          simulateFailure: false
+        })
+      });
+      
+      const paymentResult = await paymentResponse.json();
+      
+      if (!paymentResult.success) {
+        showToast(paymentResult.message || "Payment failed", "error");
+        return;
+      }
+      
+      showToast("Payment successful! Activating plan...", "success");
+      
+      // Step 2: Activate plan with correct data structure
+      const activateResult = await activatePlan({
+        userId: state.user.id,  // Send userId as Long
+        planId: plan.id          // Send planId as Long
+      });
+      
+      // Check response
+      if (activateResult.message && activateResult.success !== false) {
+        // Update local state
+        actions.activatePlan(plan);
+        showToast(`🎉 ${plan.name} activated successfully!`, "success");
+        
+        // Navigate to dashboard after 2 seconds
+        setTimeout(() => {
+          navigate("/dashboard");
+        }, 2000);
+      } else {
+        showToast(activateResult.message || "Failed to activate plan", "error");
+      }
+      
+    } catch (error) {
+      console.error("Activation error:", error);
+      showToast(error.message || "Failed to activate plan", "error");
+    } finally {
+      setProcessingPayment(false);
+    }
+  };
+
+  const showToast = (message, type) => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  if (loading) return <Loader text="Loading plans..." />;
 
   return (
-    <AnimatedPage>
-      <div className={isLightMode ? "rounded-3xl bg-[#f8fafc] p-4 text-[#1f2937]" : ""}>
-      <AppHeader
-        title="Select Plan"
-        subtitle="Choose your weekly protection plan"
-        titleClassName={isLightMode ? "text-black" : "text-white"}
-        subtitleClassName={isLightMode ? "!text-slate-800 font-semibold" : "!text-slate-300"}
-      />
+    <AnimatedPage className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 pb-24">
+      <div className="container mx-auto px-4 py-6">
+        <AppHeader 
+          title="Insurance Plans"
+          subtitle="Choose the perfect protection for your deliveries"
+          titleClassName="text-white"
+          subtitleClassName="text-cyan-300"
+        />
 
-      {error ? <div className={`mb-4 rounded-xl p-3 text-sm ${isLightMode ? "border border-red-200 bg-red-50 text-red-700" : "border border-danger/30 bg-danger/10 text-danger"}`}>{error}</div> : null}
-
-      <motion.div variants={listVariants} initial="initial" animate="animate" className="space-y-3">
-        {plans.map((plan) => {
-          const selected = state.selectedPlan?.id === plan.id;
-          return (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+          {plans.map((plan, idx) => (
             <motion.div
               key={plan.id}
-              variants={itemVariants}
-              whileHover={{ y: -7, rotateX: 2.4, scale: 1.01 }}
-              transition={{ type: "spring", stiffness: 180, damping: 20 }}
-              className={`relative overflow-hidden rounded-2xl border p-4 ${
-                selected
-                  ? isLightMode
-                    ? "border-cyan-300 bg-cyan-50 shadow-md"
-                    : "border-cyan-300/70 bg-cyan-300/10 shadow-glow"
-                  : isLightMode
-                    ? "border-slate-200 bg-white shadow-md"
-                    : "glass-panel border-white/10"
-              }`}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: idx * 0.1 }}
+              className={`glass-panel rounded-2xl p-6 border ${
+                selectedPlan?.id === plan.id 
+                  ? 'border-cyan-500 bg-cyan-500/10' 
+                  : 'border-white/10 hover:border-cyan-500/50'
+              } transition-all cursor-pointer`}
+              onClick={() => setSelectedPlan(plan)}
             >
-              {selected ? <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-cyan-300/12 via-transparent to-teal-300/10" /> : null}
-
-              <div className="relative mb-3 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <FiShield className={isLightMode ? "text-cyan-600" : "text-cyan-300"} />
-                  <p className={`font-semibold ${isLightMode ? "text-slate-900" : "text-white"}`}>{plan.name}</p>
-                </div>
-                <span className={`rounded-full px-3 py-1 text-xs ${isLightMode ? "bg-slate-100 text-slate-700" : "bg-slate-900/55 text-slate-300"}`}>Weekly</span>
+              {/* Plan Name */}
+              <div className="flex justify-between items-start mb-4">
+                <h3 className="text-xl font-bold text-white">{plan.name}</h3>
+                {selectedPlan?.id === plan.id && (
+                  <FiCheck className="text-cyan-400" size={20} />
+                )}
               </div>
-
-              <p className={`relative text-sm ${isLightMode ? "text-slate-700" : "text-slate-300"}`}>Premium: ₹{plan.premium}</p>
-              <p className={`relative mb-3 text-sm ${isLightMode ? "text-slate-700" : "text-slate-300"}`}>Coverage: ₹{plan.coverage}</p>
-
+              
+              {/* Price */}
+              <div className="mb-6">
+                <span className="text-4xl font-bold text-cyan-300">₹{plan.premium}</span>
+                <span className="text-slate-400">/month</span>
+              </div>
+              
+              {/* Coverage */}
+              <div className="mb-6">
+                <p className="text-slate-300">Coverage up to</p>
+                <p className="text-2xl font-bold text-white">₹{plan.coverage}</p>
+              </div>
+              
+              {/* Features */}
+              <ul className="space-y-2 mb-6">
+                {plan.name === "Starter Shield" && (
+                  <>
+                    <li className="text-sm text-slate-300 flex items-center gap-2">
+                      <FiCheck className="text-green-400" /> Basic weather protection
+                    </li>
+                    <li className="text-sm text-slate-300 flex items-center gap-2">
+                      <FiCheck className="text-green-400" /> AI risk alerts
+                    </li>
+                  </>
+                )}
+                {plan.name === "Pro Shield" && (
+                  <>
+                    <li className="text-sm text-slate-300 flex items-center gap-2">
+                      <FiCheck className="text-green-400" /> Enhanced coverage
+                    </li>
+                    <li className="text-sm text-slate-300 flex items-center gap-2">
+                      <FiCheck className="text-green-400" /> Real-time monitoring
+                    </li>
+                    <li className="text-sm text-slate-300 flex items-center gap-2">
+                      <FiCheck className="text-green-400" /> Priority support
+                    </li>
+                  </>
+                )}
+                {plan.name === "Max Shield" && (
+                  <>
+                    <li className="text-sm text-slate-300 flex items-center gap-2">
+                      <FiCheck className="text-green-400" /> Maximum coverage
+                    </li>
+                    <li className="text-sm text-slate-300 flex items-center gap-2">
+                      <FiCheck className="text-green-400" /> Instant payouts
+                    </li>
+                    <li className="text-sm text-slate-300 flex items-center gap-2">
+                      <FiCheck className="text-green-400" /> 24/7 dedicated support
+                    </li>
+                    <li className="text-sm text-slate-300 flex items-center gap-2">
+                      <FiCheck className="text-green-400" /> Priority claims
+                    </li>
+                  </>
+                )}
+              </ul>
+              
+              {/* Activate Button */}
               <MotionButton
-                onClick={() => {
-                  actions.setSelectedPlan(plan);
-                  actions.notify("Plan selected. Proceed to payment.", "success");
-                  navigate("/payment");
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleActivatePlan(plan);
                 }}
-                className={`relative w-full rounded-xl px-4 py-2.5 text-sm font-semibold ${selected ? "bg-cyan-300 text-slate-900" : "bg-gradient-to-r from-cyan-300 to-teal-300 text-slate-900"}`}
+                disabled={processingPayment}
+                className={`w-full py-2 rounded-lg font-semibold transition ${
+                  processingPayment
+                    ? 'bg-slate-600 cursor-not-allowed'
+                    : 'bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600'
+                } text-white`}
               >
-                Select Plan
+                {processingPayment && selectedPlan?.id === plan.id 
+                  ? 'Processing...' 
+                  : 'Activate Now'}
               </MotionButton>
             </motion.div>
-          );
-        })}
-      </motion.div>
+          ))}
+        </div>
+
+        {/* Info Card */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="mt-8 glass-panel rounded-2xl p-4 border border-white/10"
+        >
+          <div className="flex items-start gap-3">
+            <FiAlertCircle className="text-cyan-400 mt-1" />
+            <div>
+              <p className="text-sm text-slate-300">
+                💡 All plans include weather-based auto payouts. 
+                When environmental conditions exceed thresholds, 
+                you'll automatically receive compensation.
+              </p>
+            </div>
+          </div>
+        </motion.div>
       </div>
+
+      {/* Toast Notifications */}
+      <Toast 
+        message={toast?.message} 
+        type={toast?.type} 
+        onClose={() => setToast(null)} 
+      />
     </AnimatedPage>
   );
 };
