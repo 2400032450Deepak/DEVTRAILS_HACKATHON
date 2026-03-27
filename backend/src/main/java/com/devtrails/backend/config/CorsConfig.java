@@ -1,4 +1,3 @@
-// backend/src/main/java/com/devtrails/backend/config/CorsConfig.java
 package com.devtrails.backend.config;
 
 import org.springframework.context.annotation.Configuration;
@@ -10,8 +9,11 @@ public class CorsConfig implements WebMvcConfigurer {
     
     @Override
     public void addCorsMappings(CorsRegistry registry) {
-        registry.addMapping("/**")  // Allow all endpoints
-            .allowedOrigins("http://localhost:3000")  // React frontend
+        registry.addMapping("/**")
+            .allowedOrigins(
+                "http://localhost:3000",
+                "https://delivershield-frontend.onrender.com"  // Add this line
+            )
             .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
             .allowedHeaders("*")
             .allowCredentials(true)
