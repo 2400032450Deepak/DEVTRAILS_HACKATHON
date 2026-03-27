@@ -26,23 +26,39 @@ public class AuthService {
 
     public Map<String, Object> login(String email, String password) {
 
-        User user = userRepository.findByEmail(email)
-                .filter(u -> u.getPassword().equals(password))
-                .orElse(null);
+    // ✅ ADMIN LOGIN (HARDCODED)
+    if (email.equals("admin@devtrails.com") && password.equals("devtrail@422")) {
 
-        if (user == null) {
-            return Map.of("error", "Invalid credentials");
-        }
-
-        String token = JwtUtil.generateToken(user.getEmail());
+        String token = JwtUtil.generateToken(email);
 
         return Map.of(
                 "token", token,
                 "user", Map.of(
-                        "id", user.getId(),
-                        "name", user.getName(),
-                        "contact", user.getEmail()
+                        "id", 0,
+                        "name", "Admin",
+                        "contact", email
                 )
         );
     }
+
+    // ✅ NORMAL USER LOGIN
+    User user = userRepository.findByEmail(email)
+            .filter(u -> u.getPassword().equals(password))
+            .orElse(null);
+
+    if (user == null) {
+        return Map.of("error", "Invalid credentials");
+    }
+
+    String token = JwtUtil.generateToken(user.getEmail());
+
+    return Map.of(
+            "token", token,
+            "user", Map.of(
+                    "id", user.getId(),
+                    "name", user.getName(),
+                    "contact", user.getEmail()
+            )
+    );
+}
 }
