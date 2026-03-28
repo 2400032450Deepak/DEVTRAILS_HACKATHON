@@ -1,0 +1,22 @@
+# Maven build output
+target/
+
+# Logs
+*.log
+
+# Git
+.git
+.gitignore
+
+# Node (just in case anything left)
+node_modules/
+package.json
+package-lock.json
+
+# OS / IDE junk
+.DS_Store
+.idea
+.vscode
+
+# Docs
+README.md
