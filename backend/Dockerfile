@@ -1,13 +1,22 @@
-# Railway deployment - using Eclipse Temurin images
-FROM maven:3.8.4-eclipse-temurin-17 AS build
+# -------- BUILD STAGE --------
+FROM maven:3.9.6-eclipse-temurin-17 AS build
 WORKDIR /app
-# Copy the entire backend folder contents to /app
-COPY backend/ .
-# Run Maven build
+
+# Copy everything
+COPY . .
+
+# Build jar
 RUN mvn clean package -DskipTests
 
+
+# -------- RUN STAGE --------
 FROM eclipse-temurin:17-jdk-alpine
-# Copy the built JAR file from the build stage
-COPY --from=build /app/target/*.jar /app.jar
+
+# Copy jar from build stage
+COPY --from=build /app/target/*.jar app.jar
+
+# Expose port (Render uses 8080)
 EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "/app.jar"]
+
+# Run application
+ENTRYPOINT ["java","-jar","/app.jar"]
