@@ -393,7 +393,7 @@ const DashboardPage = () => {
             onChange={(e) => setSimulateGpsAnomaly(e.target.checked)}
             className={`h-4 w-4 rounded ${isLightMode ? "border-slate-400 bg-white" : "border-white/30 bg-slate-900/70"}`}
           />
-          Simulate GPS anomaly (demo)
+          Simulate GPS anomaly
         </label>
       </motion.div>
 
