@@ -14,7 +14,7 @@ public class CorsConfig {
             @Override
             public void addCorsMappings(CorsRegistry registry) {
                 registry.addMapping("/**")
-                    .allowedOrigins("https://your-frontend.vercel.app")  // Replace with your actual Vercel URL
+                    .allowedOrigins("https://delivershield-ai.vercel.app/")  // Replace with your actual Vercel URL
                     .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                     .allowedHeaders("*")
                     .allowCredentials(true);
