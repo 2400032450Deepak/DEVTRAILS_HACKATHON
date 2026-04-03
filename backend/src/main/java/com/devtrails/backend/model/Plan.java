@@ -22,9 +22,37 @@ public class Plan {
         this.coverage = coverage;
     }
 
-    public Long getId() { return id; }
+    // Getters
+    public Long getId() { 
+        return id; 
+    }
+    
+    public String getName() { 
+        return name; 
+    }
+    
+    public int getPremium() { 
+        return premium; 
+    }
+    
+    public int getCoverage() { 
+        return coverage; 
+    }
 
-    public String getName() { return name; }
-    public int getPremium() { return premium; }
-    public int getCoverage() { return coverage; }
+    // Setters
+    public void setId(Long id) { 
+        this.id = id; 
+    }
+    
+    public void setName(String name) { 
+        this.name = name; 
+    }
+    
+    public void setPremium(int premium) { 
+        this.premium = premium; 
+    }
+    
+    public void setCoverage(int coverage) { 
+        this.coverage = coverage; 
+    }
 }

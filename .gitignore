@@ -1,4 +1,33 @@
-.metadata/
-node_modules
-build
-.env
+# Secrets
+**/application.properties
+**/.env
+**/secret*.txt
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+logs/
+
+# Temp files
+*.tmp
+*.temp
+
+# Python cache everywhere
+**/__pycache__/
+
+# Node modules anywhere
+**/node_modules/
+
+# Java target
+**/target/
+
+# Eclipse metadata
+**/.metadata/
