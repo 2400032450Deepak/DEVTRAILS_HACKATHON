@@ -6,6 +6,7 @@ import com.devtrails.backend.repository.PlanRepository;
 import com.devtrails.backend.repository.UserPlanRepository;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Service
@@ -24,8 +25,25 @@ public class PlanService {
     }
 
     public String activatePlan(Long userId, Long planId) {
-        UserPlan userPlan = new UserPlan(userId, planId, true);
-        userPlanRepository.save(userPlan);
+        List<UserPlan> plans = userPlanRepository.findAll();
+        UserPlan existingPlan = null;
+        for (UserPlan up : plans) {
+            if (up.getUserId().equals(userId)) {
+                existingPlan = up;
+                break;
+            }
+        }
+        
+        if (existingPlan != null) {
+            existingPlan.setPlanId(planId);
+            existingPlan.setActive(true);
+            existingPlan.setStartDate(LocalDate.now());
+            existingPlan.setEndDate(LocalDate.now().plusDays(7));
+            userPlanRepository.save(existingPlan);
+        } else {
+            UserPlan userPlan = new UserPlan(userId, planId, true);
+            userPlanRepository.save(userPlan);
+        }
         return "Plan activated successfully";
     }
 
@@ -41,4 +59,21 @@ public class PlanService {
         return "Plan created successfully";
     }
 
+    // Add this method to PlanService.java
+    public Plan getPlanById(Long planId) {
+        return planRepository.findById(planId).orElse(null);
+    }
+
+    public UserPlan getUserPlan(Long userId) {
+        List<UserPlan> plans = userPlanRepository.findAll();
+        for (UserPlan up : plans) {
+            if (up.getUserId().equals(userId) && up.isActive()) {
+                // Fetch and set the plan
+                Plan plan = getPlanById(up.getPlanId());
+                up.setPlan(plan);
+                return up;
+            }
+        }
+        return null;
+    }
 }

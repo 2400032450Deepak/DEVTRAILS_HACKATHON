@@ -10,6 +10,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth")
+// REMOVE the @CrossOrigin annotation - let CorsConfig handle it
 public class AuthController {
 
     private final AuthService authService;

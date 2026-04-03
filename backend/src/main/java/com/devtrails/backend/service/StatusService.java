@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.Random;
 
 @Service
+@SuppressWarnings({"unused", "FieldCanBeLocal"})
 public class StatusService {
 
     private final PayoutRepository payoutRepository;
@@ -32,16 +33,6 @@ public class StatusService {
         if (rain > 40 || temp > 42 || aqi > 300) {
             label = "Risk";
             risk = "High";
-
-            // AUTO PAYOUT
-            Payout payout = new Payout(
-                    userId,
-                    300,
-                    "Environmental Risk Detected",
-                    LocalDate.now()
-            );
-
-            payoutRepository.save(payout);
         }
 
         Map<String, Object> response = new HashMap<>();

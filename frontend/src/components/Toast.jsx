@@ -1,40 +1,61 @@
-﻿import React, { useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { FiCheckCircle, FiAlertTriangle } from "react-icons/fi";
+import React, { useEffect } from 'react';
+import { X, CheckCircle, AlertCircle, Info } from 'lucide-react';
 
-const Toast = ({ message, type = "success", onClose }) => {
+export function Toast({ message, type = 'info', onClose, duration = 3000 }) {
   useEffect(() => {
-    if (!message) {
-      return;
-    }
-
-    const timer = setTimeout(() => {
-      onClose();
-    }, 2200);
-
+    const timer = setTimeout(onClose, duration);
     return () => clearTimeout(timer);
-  }, [message, onClose]);
+  }, [duration, onClose]);
 
-  const isSuccess = type === "success";
+  const icons = {
+    success: <CheckCircle size={18} className="text-green" />,
+    error: <AlertCircle size={18} className="text-red" />,
+    info: <Info size={18} className="text-amber" />,
+  };
+
+  const backgrounds = {
+    success: 'rgba(16, 185, 129, 0.1)',
+    error: 'rgba(239, 68, 68, 0.1)',
+    info: 'rgba(245, 158, 11, 0.1)',
+  };
+
+  const toastStyle = {
+    position: 'fixed',
+    bottom: '2rem',
+    right: '2rem',
+    zIndex: 1000,
+    animation: 'slideIn 0.3s ease-out',
+  };
+
+  const contentStyle = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.75rem',
+    padding: '1rem 1.5rem',
+    backgroundColor: 'var(--bg-surface)',
+    border: '1px solid var(--border)',
+    borderRadius: '8px',
+    boxShadow: 'var(--shadow-lg)',
+  };
+
+  const buttonStyle = {
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    color: 'var(--text-muted)',
+    display: 'flex',
+    alignItems: 'center',
+  };
 
   return (
-    <AnimatePresence>
-      {message ? (
-        <motion.div
-          initial={{ opacity: 0, y: 12, scale: 0.96 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 10, scale: 0.97 }}
-          transition={{ duration: 0.24, ease: "easeInOut" }}
-          className="glass-panel fixed bottom-20 left-1/2 z-50 w-[90%] max-w-sm -translate-x-1/2 rounded-xl border border-white/15 p-3 text-sm text-white shadow-cyan"
-        >
-          <div className="flex items-center gap-2">
-            {isSuccess ? <FiCheckCircle className="text-safe" size={18} /> : <FiAlertTriangle className="text-warn" size={18} />}
-            <span>{message}</span>
-          </div>
-        </motion.div>
-      ) : null}
-    </AnimatePresence>
+    <div style={toastStyle}>
+      <div style={contentStyle}>
+        {icons[type]}
+        <span className="mono" style={{ fontSize: '0.875rem' }}>{message}</span>
+        <button onClick={onClose} style={buttonStyle}>
+          <X size={14} />
+        </button>
+      </div>
+    </div>
   );
-};
-
-export default Toast;
+}
