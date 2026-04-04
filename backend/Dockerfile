@@ -1,29 +1,18 @@
-# Use Java 17
-FROM openjdk:17-jdk-slim
+FROM openjdk:17-alpine
 
-# Set working directory
 WORKDIR /app
 
-# Copy maven wrapper and pom
-COPY mvnw .
-COPY mvnw.cmd .
+# Copy only needed files first (better caching)
 COPY pom.xml .
-
-# Copy maven wrapper files
+COPY mvnw .
 COPY .mvn .mvn
 
 # Download dependencies
-RUN chmod +x mvnw
-RUN ./mvnw dependency:go-offline -B
+RUN chmod +x mvnw && ./mvnw dependency:go-offline
 
-# Copy source code
+# Copy source and build
 COPY src src
+RUN ./mvnw clean package -DskipTests
 
-# Build the application
-RUN ./mvnw package -DskipTests
-
-# Expose port
 EXPOSE 8080
-
-# Run the application
-CMD ["java", "-jar", "target/*.jar"]
+CMD ["sh", "-c", "java -jar target/*.jar"]
