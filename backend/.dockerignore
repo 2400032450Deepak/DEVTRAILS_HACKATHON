@@ -1,22 +1,7 @@
-# Maven build output
 target/
-
-# Logs
 *.log
-
-# Git
+*.tmp
 .git
 .gitignore
-
-# Node (just in case anything left)
-node_modules/
-package.json
-package-lock.json
-
-# OS / IDE junk
-.DS_Store
-.idea
-.vscode
-
-# Docs
 README.md
+.mvn/wrapper/maven-wrapper.jar
