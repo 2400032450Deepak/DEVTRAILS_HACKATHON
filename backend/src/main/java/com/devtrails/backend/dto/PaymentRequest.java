@@ -1,50 +1,25 @@
 package com.devtrails.backend.dto;
 
 public class PaymentRequest {
-    private Long amount;
-    private Long planId;
+    private Double amount;
+    private Integer planId;
     private String gateway;
-    private boolean simulateFailure;
+    private String userId;
+    private String zone;  // Add zone field
     
     public PaymentRequest() {}
     
-    public PaymentRequest(Long amount, Long planId, String gateway, boolean simulateFailure) {
-        this.amount = amount;
-        this.planId = planId;
-        this.gateway = gateway;
-        this.simulateFailure = simulateFailure;
-    }
+    // Getters
+    public Double getAmount() { return amount; }
+    public Integer getPlanId() { return planId; }
+    public String getGateway() { return gateway; }
+    public String getUserId() { return userId; }
+    public String getZone() { return zone; }
     
-    // Getters and Setters
-    public Long getAmount() {
-        return amount;
-    }
-    
-    public void setAmount(Long amount) {
-        this.amount = amount;
-    }
-    
-    public Long getPlanId() {
-        return planId;
-    }
-    
-    public void setPlanId(Long planId) {
-        this.planId = planId;
-    }
-    
-    public String getGateway() {
-        return gateway;
-    }
-    
-    public void setGateway(String gateway) {
-        this.gateway = gateway;
-    }
-    
-    public boolean isSimulateFailure() {
-        return simulateFailure;
-    }
-    
-    public void setSimulateFailure(boolean simulateFailure) {
-        this.simulateFailure = simulateFailure;
-    }
+    // Setters
+    public void setAmount(Double amount) { this.amount = amount; }
+    public void setPlanId(Integer planId) { this.planId = planId; }
+    public void setGateway(String gateway) { this.gateway = gateway; }
+    public void setUserId(String userId) { this.userId = userId; }
+    public void setZone(String zone) { this.zone = zone; }
 }
