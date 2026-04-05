@@ -3,6 +3,8 @@ package com.devtrails.backend.service;
 import com.devtrails.backend.model.User;
 import com.devtrails.backend.repository.UserRepository;
 import com.devtrails.backend.util.JwtUtil;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
@@ -13,6 +15,7 @@ import java.util.Optional;
 public class AuthService {
 
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     public AuthService(UserRepository userRepository) {
         this.userRepository = userRepository;
@@ -21,6 +24,9 @@ public class AuthService {
     public String register(User user) {
         String normalizedPhone = normalizePhone(user.getPhone());
         user.setPhone(normalizedPhone);
+        
+        // ✅ ENCODE the password before saving
+        user.setPassword(passwordEncoder.encode(user.getPassword()));
         
         System.out.println("📝 Registering user with phone: " + normalizedPhone);
         
@@ -47,7 +53,6 @@ public class AuthService {
         System.out.println("========================================");
         System.out.println("🔍 LOGIN ATTEMPT");
         System.out.println("📱 Identifier: " + identifier);
-        System.out.println("🔑 Password: " + password);
         
         try {
             // Try multiple formats to find the user
@@ -64,7 +69,6 @@ public class AuthService {
             System.out.println("   Name: " + user.getName());
             System.out.println("   Phone: " + user.getPhone());
             System.out.println("   Email: " + user.getEmail());
-            System.out.println("   Stored Password: " + user.getPassword());
             
             // Check password
             if (user.getPassword() == null) {
@@ -73,10 +77,9 @@ public class AuthService {
                 return response;
             }
             
-            if (!user.getPassword().equals(password)) {
+            // ✅ Use password encoder to check
+            if (!passwordEncoder.matches(password, user.getPassword())) {
                 System.out.println("❌ PASSWORD MISMATCH!");
-                System.out.println("   Expected: " + user.getPassword());
-                System.out.println("   Received: " + password);
                 response.put("error", "Invalid password. Please try again.");
                 return response;
             }
@@ -86,6 +89,7 @@ public class AuthService {
             
             String token = JwtUtil.generateToken(user.getPhone());
             
+            response.put("success", true);
             response.put("token", token);
             response.put("user", Map.of(
                 "id", user.getId(),

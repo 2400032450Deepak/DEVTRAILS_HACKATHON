@@ -50,33 +50,33 @@ export default function LiveMonitor() {
 
   const calculatePayout = (triggerData) => {
     let amount = 0;
-    if (triggerData.live_conditions?.rainfall_mm_hr > 40) amount += 300;
-    if (triggerData.live_conditions?.aqi > 300) amount += 250;
-    if (triggerData.live_conditions?.temperature_c > 42) amount += 200;
+    if (triggerData?.live_conditions?.rainfall_mm_hr > 40) amount += 300;
+    if (triggerData?.live_conditions?.aqi > 300) amount += 250;
+    if (triggerData?.live_conditions?.temperature_c > 42) amount += 200;
     return amount;
   };
 
   const getActiveTriggerType = (triggerData) => {
-    if (triggerData.live_conditions?.rainfall_mm_hr > 40) return 'Heavy Rainfall';
-    if (triggerData.live_conditions?.aqi > 300) return 'High Pollution';
-    if (triggerData.live_conditions?.temperature_c > 42) return 'Extreme Heat';
+    if (triggerData?.live_conditions?.rainfall_mm_hr > 40) return 'Heavy Rainfall';
+    if (triggerData?.live_conditions?.aqi > 300) return 'High Pollution';
+    if (triggerData?.live_conditions?.temperature_c > 42) return 'Extreme Heat';
     return 'None';
   };
 
   const getActiveTriggerValue = (triggerData) => {
-    if (triggerData.live_conditions?.rainfall_mm_hr > 40) 
+    if (triggerData?.live_conditions?.rainfall_mm_hr > 40) 
       return `${triggerData.live_conditions.rainfall_mm_hr} mm/hr`;
-    if (triggerData.live_conditions?.aqi > 300) 
+    if (triggerData?.live_conditions?.aqi > 300) 
       return `${triggerData.live_conditions.aqi} AQI`;
-    if (triggerData.live_conditions?.temperature_c > 42) 
+    if (triggerData?.live_conditions?.temperature_c > 42) 
       return `${triggerData.live_conditions.temperature_c}°C`;
     return '-';
   };
 
   const getActiveThreshold = (triggerData) => {
-    if (triggerData.live_conditions?.rainfall_mm_hr > 40) return '> 40 mm/hr';
-    if (triggerData.live_conditions?.aqi > 300) return '> 300 AQI';
-    if (triggerData.live_conditions?.temperature_c > 42) return '> 42°C';
+    if (triggerData?.live_conditions?.rainfall_mm_hr > 40) return '> 40 mm/hr';
+    if (triggerData?.live_conditions?.aqi > 300) return '> 300 AQI';
+    if (triggerData?.live_conditions?.temperature_c > 42) return '> 42°C';
     return '-';
   };
 
@@ -92,20 +92,21 @@ export default function LiveMonitor() {
   if (loading) return <LoadingSpinner message="Connecting to telemetry stream..." />;
   if (!data) return <LoadingSpinner message="Awaiting data stream..." />;
 
-  const conditions = data.live_conditions;
-  const thresholds = data.thresholds;
+  // ✅ SAFE: Use default values if live_conditions is undefined
+  const conditions = data?.live_conditions || { rainfall_mm_hr: 0, aqi: 0, temperature_c: 0 };
+  const thresholds = data?.thresholds || { rainfall_mm_hr: 40, aqi: 300, temperature_c: 42 };
   const totalPayout = calculatePayout(data);
   const isAnyTriggered = totalPayout > 0;
 
-  // Calculate percentages for progress bars
-  const rainfallPercent = Math.min((conditions.rainfall_mm_hr / 80) * 100, 100);
-  const aqiPercent = Math.min((conditions.aqi / 500) * 100, 100);
-  const tempPercent = Math.min((conditions.temperature_c / 50) * 100, 100);
+  // Calculate percentages for progress bars (with safe defaults)
+  const rainfallPercent = Math.min(((conditions?.rainfall_mm_hr || 0) / 80) * 100, 100);
+  const aqiPercent = Math.min(((conditions?.aqi || 0) / 500) * 100, 100);
+  const tempPercent = Math.min(((conditions?.temperature_c || 0) / 50) * 100, 100);
 
-  // Get status colors
-  const getRainfallColor = () => conditions.rainfall_mm_hr > 40 ? 'var(--danger)' : conditions.rainfall_mm_hr > 25 ? 'var(--warning)' : 'var(--success)';
-  const getAqiColor = () => conditions.aqi > 300 ? 'var(--danger)' : conditions.aqi > 200 ? 'var(--warning)' : 'var(--success)';
-  const getTempColor = () => conditions.temperature_c > 42 ? 'var(--danger)' : conditions.temperature_c > 38 ? 'var(--warning)' : 'var(--success)';
+  // Get status colors (with safe defaults)
+  const getRainfallColor = () => (conditions?.rainfall_mm_hr || 0) > 40 ? 'var(--danger)' : (conditions?.rainfall_mm_hr || 0) > 25 ? 'var(--warning)' : 'var(--success)';
+  const getAqiColor = () => (conditions?.aqi || 0) > 300 ? 'var(--danger)' : (conditions?.aqi || 0) > 200 ? 'var(--warning)' : 'var(--success)';
+  const getTempColor = () => (conditions?.temperature_c || 0) > 42 ? 'var(--danger)' : (conditions?.temperature_c || 0) > 38 ? 'var(--warning)' : 'var(--success)';
 
   return (
     <div style={{ padding: '1.5rem', maxWidth: '1400px', margin: '0 auto' }}>
@@ -232,7 +233,7 @@ export default function LiveMonitor() {
         <div style={{
           background: 'var(--bg-secondary)',
           borderRadius: '1rem',
-          border: `1px solid ${conditions.rainfall_mm_hr > 40 ? 'var(--danger)' : 'var(--border-light)'}`,
+          border: `1px solid ${(conditions?.rainfall_mm_hr || 0) > 40 ? 'var(--danger)' : 'var(--border-light)'}`,
           overflow: 'hidden',
         }}>
           <div style={{
@@ -255,12 +256,12 @@ export default function LiveMonitor() {
               color: getRainfallColor(),
               fontWeight: 500,
             }}>
-              {conditions.rainfall_mm_hr > 40 ? 'TRIGGERED' : conditions.rainfall_mm_hr > 25 ? 'WARNING' : 'NORMAL'}
+              {(conditions?.rainfall_mm_hr || 0) > 40 ? 'TRIGGERED' : (conditions?.rainfall_mm_hr || 0) > 25 ? 'WARNING' : 'NORMAL'}
             </span>
           </div>
           <div style={{ padding: '1.5rem' }}>
             <div style={{ fontSize: '2.5rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>
-              {conditions.rainfall_mm_hr} <span style={{ fontSize: '1rem', color: 'var(--text-secondary)' }}>mm/hr</span>
+              {conditions?.rainfall_mm_hr || 0} <span style={{ fontSize: '1rem', color: 'var(--text-secondary)' }}>mm/hr</span>
             </div>
             <div style={{ 
               marginTop: '1rem',
@@ -278,12 +279,12 @@ export default function LiveMonitor() {
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.5rem', fontSize: '0.7rem', color: 'var(--text-tertiary)' }}>
               <span>0 mm/hr</span>
-              <span>Threshold: {thresholds.rainfall_mm_hr} mm/hr</span>
+              <span>Threshold: {thresholds?.rainfall_mm_hr || 40} mm/hr</span>
               <span>80 mm/hr</span>
             </div>
-            {conditions.rainfall_mm_hr > 40 && (
+            {(conditions?.rainfall_mm_hr || 0) > 40 && (
               <div style={{ marginTop: '1rem', padding: '0.5rem', background: 'var(--danger-glow)', borderRadius: '0.5rem', fontSize: '0.75rem' }}>
-                💰 Payout triggered: ₹300 + ₹{(conditions.rainfall_mm_hr - 40) * 10} excess
+                💰 Payout triggered: ₹300 + ₹{((conditions?.rainfall_mm_hr || 0) - 40) * 10} excess
               </div>
             )}
           </div>
@@ -293,7 +294,7 @@ export default function LiveMonitor() {
         <div style={{
           background: 'var(--bg-secondary)',
           borderRadius: '1rem',
-          border: `1px solid ${conditions.aqi > 300 ? 'var(--danger)' : conditions.aqi > 200 ? 'var(--warning)' : 'var(--border-light)'}`,
+          border: `1px solid ${(conditions?.aqi || 0) > 300 ? 'var(--danger)' : (conditions?.aqi || 0) > 200 ? 'var(--warning)' : 'var(--border-light)'}`,
           overflow: 'hidden',
         }}>
           <div style={{
@@ -316,12 +317,12 @@ export default function LiveMonitor() {
               color: getAqiColor(),
               fontWeight: 500,
             }}>
-              {conditions.aqi > 300 ? 'HAZARDOUS' : conditions.aqi > 200 ? 'UNHEALTHY' : 'MODERATE'}
+              {(conditions?.aqi || 0) > 300 ? 'HAZARDOUS' : (conditions?.aqi || 0) > 200 ? 'UNHEALTHY' : 'MODERATE'}
             </span>
           </div>
           <div style={{ padding: '1.5rem' }}>
             <div style={{ fontSize: '2.5rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>
-              {conditions.aqi}
+              {conditions?.aqi || 0}
             </div>
             <div style={{ 
               marginTop: '1rem',
@@ -339,12 +340,12 @@ export default function LiveMonitor() {
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.5rem', fontSize: '0.7rem', color: 'var(--text-tertiary)' }}>
               <span>0</span>
-              <span>Threshold: {thresholds.aqi}</span>
+              <span>Threshold: {thresholds?.aqi || 300}</span>
               <span>500</span>
             </div>
-            {conditions.aqi > 300 && (
+            {(conditions?.aqi || 0) > 300 && (
               <div style={{ marginTop: '1rem', padding: '0.5rem', background: 'var(--danger-glow)', borderRadius: '0.5rem', fontSize: '0.75rem' }}>
-                💰 Payout triggered: ₹250 + ₹{(conditions.aqi - 300) * 2} excess
+                💰 Payout triggered: ₹250 + ₹{((conditions?.aqi || 0) - 300) * 2} excess
               </div>
             )}
           </div>
@@ -354,7 +355,7 @@ export default function LiveMonitor() {
         <div style={{
           background: 'var(--bg-secondary)',
           borderRadius: '1rem',
-          border: `1px solid ${conditions.temperature_c > 42 ? 'var(--danger)' : conditions.temperature_c > 38 ? 'var(--warning)' : 'var(--border-light)'}`,
+          border: `1px solid ${(conditions?.temperature_c || 0) > 42 ? 'var(--danger)' : (conditions?.temperature_c || 0) > 38 ? 'var(--warning)' : 'var(--border-light)'}`,
           overflow: 'hidden',
         }}>
           <div style={{
@@ -377,12 +378,12 @@ export default function LiveMonitor() {
               color: getTempColor(),
               fontWeight: 500,
             }}>
-              {conditions.temperature_c > 42 ? 'EXTREME' : conditions.temperature_c > 38 ? 'HIGH' : 'NORMAL'}
+              {(conditions?.temperature_c || 0) > 42 ? 'EXTREME' : (conditions?.temperature_c || 0) > 38 ? 'HIGH' : 'NORMAL'}
             </span>
           </div>
           <div style={{ padding: '1.5rem' }}>
             <div style={{ fontSize: '2.5rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>
-              {conditions.temperature_c} <span style={{ fontSize: '1rem', color: 'var(--text-secondary)' }}>°C</span>
+              {conditions?.temperature_c || 0} <span style={{ fontSize: '1rem', color: 'var(--text-secondary)' }}>°C</span>
             </div>
             <div style={{ 
               marginTop: '1rem',
@@ -400,12 +401,12 @@ export default function LiveMonitor() {
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.5rem', fontSize: '0.7rem', color: 'var(--text-tertiary)' }}>
               <span>0°C</span>
-              <span>Threshold: {thresholds.temperature_c}°C</span>
+              <span>Threshold: {thresholds?.temperature_c || 42}°C</span>
               <span>50°C</span>
             </div>
-            {conditions.temperature_c > 42 && (
+            {(conditions?.temperature_c || 0) > 42 && (
               <div style={{ marginTop: '1rem', padding: '0.5rem', background: 'var(--danger-glow)', borderRadius: '0.5rem', fontSize: '0.75rem' }}>
-                💰 Payout triggered: ₹200 + ₹{(conditions.temperature_c - 42) * 15} excess
+                💰 Payout triggered: ₹200 + ₹{((conditions?.temperature_c || 0) - 42) * 15} excess
               </div>
             )}
           </div>
@@ -439,14 +440,14 @@ export default function LiveMonitor() {
               fontFamily: 'var(--font-mono)',
               fontSize: '0.75rem',
             }}>
-              {conditions.rainfall_mm_hr > 40 && (
-                <div style={{ marginBottom: '0.5rem' }}>✓ Rainfall: {conditions.rainfall_mm_hr}mm/hr → ₹{300 + Math.min(200, (conditions.rainfall_mm_hr - 40) * 10)}</div>
+              {(conditions?.rainfall_mm_hr || 0) > 40 && (
+                <div style={{ marginBottom: '0.5rem' }}>✓ Rainfall: {conditions?.rainfall_mm_hr}mm/hr → ₹{300 + Math.min(200, ((conditions?.rainfall_mm_hr || 0) - 40) * 10)}</div>
               )}
-              {conditions.aqi > 300 && (
-                <div style={{ marginBottom: '0.5rem' }}>✓ AQI: {conditions.aqi} → ₹{250 + Math.min(150, (conditions.aqi - 300) * 2)}</div>
+              {(conditions?.aqi || 0) > 300 && (
+                <div style={{ marginBottom: '0.5rem' }}>✓ AQI: {conditions?.aqi} → ₹{250 + Math.min(150, ((conditions?.aqi || 0) - 300) * 2)}</div>
               )}
-              {conditions.temperature_c > 42 && (
-                <div style={{ marginBottom: '0.5rem' }}>✓ Temperature: {conditions.temperature_c}°C → ₹{200 + Math.min(200, (conditions.temperature_c - 42) * 15)}</div>
+              {(conditions?.temperature_c || 0) > 42 && (
+                <div style={{ marginBottom: '0.5rem' }}>✓ Temperature: {conditions?.temperature_c}°C → ₹{200 + Math.min(200, ((conditions?.temperature_c || 0) - 42) * 15)}</div>
               )}
               {!isAnyTriggered && (
                 <div style={{ color: 'var(--text-tertiary)' }}>○ No active triggers • Monitoring conditions</div>

@@ -32,8 +32,14 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
+  // ✅ NEW: Google Login redirect to backend
+  const loginWithGoogle = () => {
+    console.log("🔐 Google Login initiated - redirecting to backend");
+    window.location.href = 'https://delivershield-backend.onrender.com/oauth2/authorization/google';
+  };
+
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading, zone, setZone }}>
+    <AuthContext.Provider value={{ user, login, logout, loginWithGoogle, loading, zone, setZone }}>
       {!loading && children}
     </AuthContext.Provider>
   );
