@@ -1,31 +1,24 @@
-// backend/src/main/java/com/devtrails/backend/controller/HealthController.java
 package com.devtrails.backend.controller;
 
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.HashMap;
 import java.util.Map;
 
 @RestController
 @RequestMapping("/api")
-@CrossOrigin(origins = "*")
 public class HealthController {
-    
-    @GetMapping("/ai/health")
-    public ResponseEntity<?> checkAIHealth() {
-        try {
-            RestTemplate restTemplate = new RestTemplate();
-            String aiUrl = "http://localhost:8000/evaluate";
-            // Just check if AI is reachable
-            return ResponseEntity.ok(Map.of(
-                "ai_status", "connected",
-                "ai_url", aiUrl
-            ));
-        } catch (Exception e) {
-            return ResponseEntity.ok(Map.of(
-                "ai_status", "disconnected",
-                "error", e.getMessage()
-            ));
-        }
+
+    @GetMapping("/health")
+    public ResponseEntity<Map<String, Object>> health() {
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", "UP");
+        response.put("timestamp", System.currentTimeMillis());
+        response.put("service", "devtrails-backend");
+        response.put("message", "Service is running");
+        return ResponseEntity.ok(response);
     }
 }

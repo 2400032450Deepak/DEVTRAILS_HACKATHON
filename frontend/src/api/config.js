@@ -1,7 +1,25 @@
 // DeliverShield AI - Complete API Configuration
 
-const API_BASE = 'http://localhost:8080/api';
-const AI_BASE = 'http://localhost:8000/evaluate';
+// ============================================
+// PRODUCTION CONFIGURATION (Vercel + Render)
+// ============================================
+
+// Backend API - Render deployment
+const API_BASE = 'https://delivershield-backend.onrender.com/api';
+
+// AI Service - Render deployment  
+const AI_BASE = 'https://devtrails-ai.onrender.com/evaluate';
+
+// ============================================
+// For local development (uncomment if needed)
+// ============================================
+// const API_BASE = 'http://localhost:8080/api';
+// const AI_BASE = 'http://localhost:8000/evaluate';
+
+// Auto-detect environment (optional - works for both local and production)
+// const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+// const API_BASE = isLocal ? 'http://localhost:8080/api' : 'https://delivershield-backend.onrender.com/api';
+// const AI_BASE = isLocal ? 'http://localhost:8000/evaluate' : 'https://devtrails-ai.onrender.com/evaluate';
 
 // Helper: Get live location
 const getLiveLocation = () => {
