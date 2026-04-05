@@ -108,19 +108,11 @@ export const loginUser = async (phone, password) => {
   }
 };
 
-export const googleLogin = async (googleToken) => {
+// Replace the existing googleLogin function with this:
+export const googleLogin = async () => {
   try {
-    await wakeUpBackend();
-
-    const res = await fetch(`${API_BASE}/auth/google`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token: googleToken })
-    });
-
-    if (!res.ok) throw new Error("Google login failed");
-
-    return await res.json();
+    // Redirect to backend's Google OAuth endpoint
+    window.location.href = 'https://delivershield-backend.onrender.com/oauth2/authorization/google';
   } catch (err) {
     console.error("Google login error:", err);
     throw err;
