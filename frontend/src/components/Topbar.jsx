@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, Menu, Phone } from 'lucide-react';
+import { Bell, Menu, Phone, MapPin } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { ZONE_DISPLAY_NAMES } from '../utils/constants';
 
 export default function Topbar({ onMenuClick }) {
-  const { setZone, user } = useAuth();
+  const { setZone, zone, user } = useAuth();
   const [time, setTime] = useState("");
   const [profile, setProfile] = useState(null);
   const [notifications, setNotifications] = useState([
@@ -35,12 +36,13 @@ export default function Topbar({ onMenuClick }) {
           navigator.geolocation.getCurrentPosition(
             (pos) => resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
             (err) => reject(err),
-            { timeout: 10000 }
+            { timeout: 10000, enableHighAccuracy: true }
           );
         });
       };
 
       const coords = await getCoordinates();
+      console.log(`📍 Current coordinates: ${coords.lat}, ${coords.lon}`);
 
       const response = await fetch(
         `https://nominatim.openstreetmap.org/reverse?format=json&lat=${coords.lat}&lon=${coords.lon}`
@@ -50,26 +52,68 @@ export default function Topbar({ onMenuClick }) {
       const city =
         data.address?.city ||
         data.address?.town ||
+        data.address?.village ||
         data.address?.state_district ||
         "";
 
-      let detectedZone = "Zone_B_Mumbai"; // default
+      const state = data.address?.state || "";
+      
+      console.log(`📍 Detected city: ${city}, State: ${state}`);
 
-      if (city.toLowerCase().includes("bangalore") || city.toLowerCase().includes("bengaluru")) {
+      let detectedZone = "Zone_D_Hyderabad"; // Default to Hyderabad for AP region
+
+      // ✅ Extended zone detection including Guntur/Andhra Pradesh
+      const cityLower = city.toLowerCase();
+      const stateLower = state.toLowerCase();
+      
+      // Bangalore / Karnataka
+      if (cityLower.includes("bangalore") || cityLower.includes("bengaluru")) {
         detectedZone = "Zone_A_Bangalore";
-      } else if (city.toLowerCase().includes("mumbai")) {
+      } 
+      // Mumbai / Maharashtra
+      else if (cityLower.includes("mumbai")) {
         detectedZone = "Zone_B_Mumbai";
-      } else if (city.toLowerCase().includes("delhi")) {
+      } 
+      // Delhi
+      else if (cityLower.includes("delhi") || cityLower.includes("new delhi")) {
         detectedZone = "Zone_C_Delhi";
-      } else if (city.toLowerCase().includes("hyderabad")) {
+      } 
+      // Hyderabad / Telangana / Andhra Pradesh (Guntur, Vijayawada, etc.)
+      else if (cityLower.includes("hyderabad") || 
+               cityLower.includes("secunderabad") ||
+               cityLower.includes("guntur") ||
+               cityLower.includes("vijayawada") ||
+               cityLower.includes("amaravati") ||
+               cityLower.includes("tenali") ||
+               cityLower.includes("ongole") ||
+               cityLower.includes("nellore") ||
+               cityLower.includes("kurnool") ||
+               cityLower.includes("tirupati") ||
+               stateLower.includes("andhra pradesh") ||
+               stateLower.includes("telangana")) {
         detectedZone = "Zone_D_Hyderabad";
-      } else if (city.toLowerCase().includes("chennai")) {
+      } 
+      // Chennai / Tamil Nadu
+      else if (cityLower.includes("chennai")) {
         detectedZone = "Zone_E_Chennai";
       }
+      // Check coordinates for Guntur/AP region as fallback
+      else if (coords.lat >= 14.0 && coords.lat <= 18.0 && coords.lon >= 77.0 && coords.lon <= 82.0) {
+        detectedZone = "Zone_D_Hyderabad";
+        console.log(`📍 Coordinates fallback: detected AP region -> Zone_D_Hyderabad`);
+      }
 
+      console.log(`📍 Setting zone to: ${detectedZone} (based on: ${city || state})`);
       setZone(detectedZone);
+      localStorage.setItem('userZone', detectedZone);
+      
     } catch (error) {
       console.error("Location detection failed:", error);
+      // Try to get saved zone from localStorage
+      const savedZone = localStorage.getItem('userZone');
+      if (savedZone) {
+        setZone(savedZone);
+      }
     }
   };
 
@@ -112,6 +156,11 @@ export default function Topbar({ onMenuClick }) {
       return `+${digits.slice(0, 2)} ${digits.slice(2, 7)} ${digits.slice(7)}`;
     }
     return phone;
+  };
+
+  // Get readable zone name
+  const getReadableZoneName = () => {
+    return ZONE_DISPLAY_NAMES[zone] || zone?.replace(/_/g, ' ') || 'Unknown';
   };
 
   return (
@@ -163,6 +212,22 @@ export default function Topbar({ onMenuClick }) {
       {/* RIGHT */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
         
+        {/* ✅ Zone Indicator */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+          background: 'var(--bg-primary)',
+          padding: '0.3rem 0.8rem',
+          borderRadius: '2rem',
+          border: '1px solid var(--border-light)'
+        }}>
+          <MapPin size={12} style={{ color: 'var(--accent-primary)' }} />
+          <span style={{ fontSize: '0.7rem', fontWeight: 500, color: 'var(--text-primary)' }}>
+            {getReadableZoneName()}
+          </span>
+        </div>
+
         {/* ✅ Logged in as indicator */}
         <div style={{
           display: 'flex',
