@@ -50,8 +50,11 @@ export default function MyCoverage() {
     if (!selectedPlan) return;
     setActivating(true);
     try {
-      await activatePlan(user.id, selectedPlan.id);
-      setActivePlan(selectedPlan);
+            await activatePlan(user.id, selectedPlan.id);
+
+      // fetch latest plan from backend
+      const updatedPlan = await getMyPlan(user.id);
+      setActivePlan(updatedPlan);
       if (showToast) showToast(`${selectedPlan.name} activated successfully!`, 'success');
     } catch (error) {
       if (showToast) showToast('Failed to activate plan', 'error');

@@ -400,7 +400,7 @@ export default function PayoutHistory() {
                 >
                   {/* ID */}
                   <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', fontWeight: 500 }}>
-                    #{payout.id.slice(-6)}
+                    #{payout.id ? String(payout.id).slice(-6) : '000000'}
                   </div>
                   
                   {/* Date */}
