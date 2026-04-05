@@ -33,9 +33,8 @@ export default function Auth() {
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  // ✅ NEW: Auto-fill from Google OAuth callback
+  // Auto-fill from Google OAuth callback
   useEffect(() => {
-    // Check URL parameters first
     const urlParams = new URLSearchParams(window.location.search);
     const googleEmail = urlParams.get('googleEmail');
     const googleName = urlParams.get('googleName');
@@ -47,25 +46,21 @@ export default function Auth() {
         email: googleEmail,
         name: googleName || prev.name
       }));
-      // Clean URL without reloading the page
       window.history.replaceState({}, document.title, window.location.pathname);
     } else {
-      // Check localStorage as fallback
       const storedEmail = localStorage.getItem('googleEmail');
       const storedName = localStorage.getItem('googleName');
       if (storedEmail && !formData.email) {
-        console.log("📧 Auto-filling from localStorage:", storedEmail);
         setFormData(prev => ({
           ...prev,
           email: storedEmail,
           name: storedName || prev.name
         }));
-        // Clear localStorage after use
         localStorage.removeItem('googleEmail');
         localStorage.removeItem('googleName');
       }
     }
-  }, []); // Empty dependency array - runs once on mount
+  }, []);
 
   // Password strength checker
   const checkPasswordStrength = (password) => {
@@ -187,11 +182,6 @@ export default function Auth() {
     } finally {
       setLoading(false);
     }
-  };
-
-  // Google Sign-In handler - redirect to backend
-  const handleGoogleSignIn = () => {
-    window.location.href = 'https://delivershield-backend.onrender.com/oauth2/authorization/google';
   };
 
   return (
@@ -420,45 +410,7 @@ export default function Auth() {
           </button>
         </form>
 
-        {/* Divider */}
-        <div style={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: '1rem', 
-          margin: '1.5rem 0',
-          color: '#9ca3af',
-          fontSize: '0.75rem',
-        }}>
-          <div style={{ flex: 1, height: '1px', background: '#e5e7eb' }} />
-          <span>OR</span>
-          <div style={{ flex: 1, height: '1px', background: '#e5e7eb' }} />
-        </div>
-
-        {/* Google Sign-In Button */}
-        <button
-          onClick={handleGoogleSignIn}
-          style={{
-            width: '100%',
-            padding: '0.75rem',
-            background: 'white',
-            border: '1px solid #e5e7eb',
-            borderRadius: '0.5rem',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '0.75rem',
-            fontSize: '0.875rem',
-            fontWeight: 500,
-            color: '#374151',
-            transition: 'all 0.2s',
-          }}
-          onMouseEnter={(e) => e.currentTarget.style.background = '#f9fafb'}
-          onMouseLeave={(e) => e.currentTarget.style.background = 'white'}
-        >
-          <Mail size={20} style={{ color: '#db4437' }} />
-          Continue with Google
-        </button>
+        {/* ✅ REMOVED: Divider and Google Sign-In Button */}
 
         {/* Toggle between Login/Register */}
         <div style={{ marginTop: '1.5rem', textAlign: 'center' }}>
