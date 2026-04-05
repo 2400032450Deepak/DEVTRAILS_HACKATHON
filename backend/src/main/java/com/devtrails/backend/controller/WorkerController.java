@@ -294,7 +294,7 @@ public class WorkerController {
             dashboard.put("live_environment", aiResponse.get("live_conditions"));
             dashboard.put("timestamp", java.time.Instant.now().toString());
             
-            return ResponseEntity.ok(dashboard);
+             return ResponseEntity.ok(dashboard);
             
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
