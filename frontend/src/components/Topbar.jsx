@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { MapPin, Bell, Menu, Navigation } from 'lucide-react';
+import { Bell, Menu } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function Topbar({ onMenuClick }) {
-  const { zone, setZone } = useAuth();
+  const { setZone } = useAuth();
   const [time, setTime] = useState("");
   const [notifications, setNotifications] = useState([
     { id: 1, message: "Heavy rainfall alert in your zone", read: false, time: "2 min ago" },
@@ -11,12 +11,10 @@ export default function Topbar({ onMenuClick }) {
     { id: 3, message: "Weekly premium due in 2 days", read: false, time: "5 hours ago" }
   ]);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [locationDetected, setLocationDetected] = useState(false);
 
-  // Auto-detect location based on coordinates
+  // Auto-detect location (runs in background)
   const detectLocation = async () => {
     try {
-      // Get user's coordinates
       const getCoordinates = () => {
         return new Promise((resolve, reject) => {
           if (!navigator.geolocation) {
@@ -32,16 +30,20 @@ export default function Topbar({ onMenuClick }) {
       };
 
       const coords = await getCoordinates();
-      
-      // Reverse geocoding to get city/zone
-      // Using a free API - you can replace with your preferred service
-      const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${coords.lat}&lon=${coords.lon}`);
+
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${coords.lat}&lon=${coords.lon}`
+      );
       const data = await response.json();
-      
-      const city = data.address?.city || data.address?.town || data.address?.state_district || "";
-      
-      // Map city to zone
-      let detectedZone = "Zone_B_Mumbai"; // Default
+
+      const city =
+        data.address?.city ||
+        data.address?.town ||
+        data.address?.state_district ||
+        "";
+
+      let detectedZone = "Zone_B_Mumbai"; // default
+
       if (city.toLowerCase().includes("bangalore") || city.toLowerCase().includes("bengaluru")) {
         detectedZone = "Zone_A_Bangalore";
       } else if (city.toLowerCase().includes("mumbai")) {
@@ -53,36 +55,19 @@ export default function Topbar({ onMenuClick }) {
       } else if (city.toLowerCase().includes("chennai")) {
         detectedZone = "Zone_E_Chennai";
       }
-      
+
       setZone(detectedZone);
-      setLocationDetected(true);
-      
-      // Show notification about location detection
-      addNotification(`Location detected: ${city || detectedZone.replace('_', ' ')}`, 'info');
-      
     } catch (error) {
       console.error("Location detection failed:", error);
-      setLocationDetected(false);
     }
   };
 
-  // Add notification helper
-  const addNotification = (message, type = 'info') => {
-    const newNotification = {
-      id: Date.now(),
-      message,
-      read: false,
-      time: "Just now"
-    };
-    setNotifications(prev => [newNotification, ...prev]);
-  };
-
-  // Auto-detect on mount
+  // Run location detection on mount
   useEffect(() => {
     detectLocation();
   }, []);
 
-  // Update time
+  // Time updater
   useEffect(() => {
     const updateTime = () => {
       setTime(new Date().toLocaleTimeString('en-IN', { hour12: false }));
@@ -95,24 +80,13 @@ export default function Topbar({ onMenuClick }) {
   const unreadCount = notifications.filter(n => !n.read).length;
 
   const markAsRead = (id) => {
-    setNotifications(prev => prev.map(n => 
-      n.id === id ? { ...n, read: true } : n
-    ));
+    setNotifications(prev =>
+      prev.map(n => (n.id === id ? { ...n, read: true } : n))
+    );
   };
 
   const markAllAsRead = () => {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-  };
-
-  const getZoneDisplayName = (zoneValue) => {
-    const zoneMap = {
-      'Zone_A_Bangalore': 'Bangalore',
-      'Zone_B_Mumbai': 'Mumbai',
-      'Zone_C_Delhi': 'Delhi',
-      'Zone_D_Hyderabad': 'Hyderabad',
-      'Zone_E_Chennai': 'Chennai'
-    };
-    return zoneMap[zoneValue] || zoneValue;
   };
 
   return (
@@ -129,7 +103,8 @@ export default function Topbar({ onMenuClick }) {
       zIndex: 30,
       boxShadow: 'var(--shadow-sm)',
     }}>
-      {/* Left Section */}
+      
+      {/* LEFT */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
         <button
           onClick={onMenuClick}
@@ -144,7 +119,7 @@ export default function Topbar({ onMenuClick }) {
         >
           <Menu size={24} />
         </button>
-        
+
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <span style={{
             width: '8px',
@@ -160,59 +135,10 @@ export default function Topbar({ onMenuClick }) {
         </div>
       </div>
 
-      {/* Center - Location Selector with Auto-detect */}
-      <div style={{ 
-        display: 'flex', 
-        alignItems: 'center', 
-        gap: '0.5rem',
-        background: 'var(--bg-primary)',
-        padding: '0.5rem 1rem',
-        borderRadius: '0.5rem',
-        border: '1px solid var(--border-light)',
-        boxShadow: 'none', // Removed shadow to fix white background issue
-      }}>
-        <Navigation size={14} style={{ color: 'var(--accent-primary)' }} />
-        <select
-          value={zone}
-          onChange={(e) => setZone(e.target.value)}
-          style={{
-            background: 'transparent',
-            border: 'none',
-            color: 'var(--text-primary)',
-            fontSize: '0.875rem',
-            fontWeight: 500,
-            cursor: 'pointer',
-            outline: 'none',
-            padding: '0',
-          }}
-        >
-          <option value="Zone_A_Bangalore">📍 Bangalore</option>
-          <option value="Zone_B_Mumbai">📍 Mumbai</option>
-          <option value="Zone_C_Delhi">📍 Delhi</option>
-          <option value="Zone_D_Hyderabad">📍 Hyderabad</option>
-          <option value="Zone_E_Chennai">📍 Chennai</option>
-        </select>
-        {!locationDetected && (
-          <button
-            onClick={detectLocation}
-            style={{
-              background: 'var(--accent-glow)',
-              border: 'none',
-              borderRadius: '0.25rem',
-              padding: '0.25rem 0.5rem',
-              fontSize: '0.6rem',
-              cursor: 'pointer',
-              color: 'var(--accent-primary)',
-            }}
-          >
-            Auto
-          </button>
-        )}
-      </div>
-
-      {/* Right Section - Notifications & Time */}
+      {/* RIGHT */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-        {/* Notifications Dropdown */}
+        
+        {/* Notifications */}
         <div style={{ position: 'relative' }}>
           <button
             onClick={() => setShowNotifications(!showNotifications)}
@@ -248,7 +174,6 @@ export default function Topbar({ onMenuClick }) {
             )}
           </button>
 
-          {/* Notifications Dropdown Content */}
           {showNotifications && (
             <>
               <div 
@@ -279,47 +204,39 @@ export default function Topbar({ onMenuClick }) {
                   borderBottom: '1px solid var(--border-light)',
                   display: 'flex',
                   justifyContent: 'space-between',
-                  alignItems: 'center',
                 }}>
                   <span style={{ fontWeight: 'bold' }}>Notifications</span>
                   {unreadCount > 0 && (
-                    <button
-                      onClick={markAllAsRead}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        fontSize: '0.7rem',
-                        color: 'var(--accent-primary)',
-                        cursor: 'pointer',
-                      }}
-                    >
+                    <button onClick={markAllAsRead} style={{
+                      background: 'none',
+                      border: 'none',
+                      fontSize: '0.7rem',
+                      color: 'var(--accent-primary)',
+                      cursor: 'pointer',
+                    }}>
                       Mark all read
                     </button>
                   )}
                 </div>
+
                 <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-                  {notifications.length === 0 ? (
-                    <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-tertiary)' }}>
-                      No notifications
-                    </div>
-                  ) : (
-                    notifications.map(notif => (
-                      <div
-                        key={notif.id}
-                        onClick={() => markAsRead(notif.id)}
-                        style={{
-                          padding: '0.75rem 1rem',
-                          borderBottom: '1px solid var(--border-light)',
-                          background: notif.read ? 'transparent' : 'var(--accent-glow)',
-                          cursor: 'pointer',
-                          transition: 'background 0.2s',
-                        }}
-                      >
-                        <div style={{ fontSize: '0.875rem', marginBottom: '0.25rem' }}>{notif.message}</div>
-                        <div style={{ fontSize: '0.6rem', color: 'var(--text-tertiary)' }}>{notif.time}</div>
+                  {notifications.map(notif => (
+                    <div
+                      key={notif.id}
+                      onClick={() => markAsRead(notif.id)}
+                      style={{
+                        padding: '0.75rem 1rem',
+                        borderBottom: '1px solid var(--border-light)',
+                        background: notif.read ? 'transparent' : 'var(--accent-glow)',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <div>{notif.message}</div>
+                      <div style={{ fontSize: '0.6rem', color: 'var(--text-tertiary)' }}>
+                        {notif.time}
                       </div>
-                    ))
-                  )}
+                    </div>
+                  ))}
                 </div>
               </div>
             </>
@@ -327,9 +244,9 @@ export default function Topbar({ onMenuClick }) {
         </div>
 
         {/* Time */}
-        <div style={{ 
-          fontFamily: 'var(--font-mono)', 
-          fontSize: '0.75rem', 
+        <div style={{
+          fontFamily: 'var(--font-mono)',
+          fontSize: '0.75rem',
           color: 'var(--text-secondary)',
           background: 'var(--bg-primary)',
           padding: '0.25rem 0.75rem',
