@@ -45,7 +45,7 @@ export default function OAuthCallback() {
         console.log("🔍 Checking if user exists with email:", emailParam);
         
         // Try to find user by email
-        const response = await fetch(`https://delivershield-backend.onrender.com/api/workers/by-email/${encodeURIComponent(emailParam)}`, {
+        const response = await fetch(`https://delivershield-backend.onrender.com/api/auth/check-email/${encodeURIComponent(emailParam)}`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
