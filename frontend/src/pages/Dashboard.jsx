@@ -13,6 +13,34 @@ export default function Dashboard() {
   const [activePlan, setActivePlan] = useState(null);
   const [recentPayouts, setRecentPayouts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [detectedLocation, setDetectedLocation] = useState(null);
+
+  // Auto-detect user's live location
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const { latitude, longitude } = position.coords;
+          
+          // Reverse geocode to get location name
+          try {
+            const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`);
+            const data = await response.json();
+            const city = data.address?.city || data.address?.town || data.address?.village || 'Unknown';
+            setDetectedLocation({ name: city, lat: latitude, lon: longitude });
+            console.log('📍 Location detected:', city);
+          } catch (error) {
+            // Fallback if reverse geocoding fails
+            setDetectedLocation({ name: `${latitude.toFixed(2)}, ${longitude.toFixed(2)}`, lat: latitude, lon: longitude });
+          }
+        },
+        (error) => {
+          console.warn('Location access denied:', error);
+          setDetectedLocation({ name: 'Location unavailable', lat: null, lon: null });
+        }
+      );
+    }
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -66,20 +94,20 @@ export default function Dashboard() {
     return 'rgba(16, 185, 129, 0.1)';
   };
 
-  const getZoneDisplayName = (zoneValue) => {
-    const zoneMap = {
-      'Zone_A_Bangalore': 'Bangalore',
-      'Zone_B_Mumbai': 'Mumbai',
-      'Zone_C_Delhi': 'Delhi',
-      'Zone_D_Hyderabad': 'Hyderabad',
-      'Zone_E_Chennai': 'Chennai'
-    };
-    return zoneMap[zoneValue] || zoneValue;
-  };
+  // const getZoneDisplayName = (zoneValue) => {
+  //   const zoneMap = {
+  //     'Zone_A_Bangalore': 'Bangalore',
+  //     'Zone_B_Mumbai': 'Mumbai',
+  //     'Zone_C_Delhi': 'Delhi',
+  //     'Zone_D_Hyderabad': 'Hyderabad',
+  //     'Zone_E_Chennai': 'Chennai'
+  //   };
+  //   return zoneMap[zoneValue] || zoneValue;
+  // };
 
   return (
     <div style={{ padding: '1.5rem', maxWidth: '1400px', margin: '0 auto' }}>
-      {/* Welcome Header with User Info */}
+      {/* Welcome Header with User Info - No Location Selector Dropdown */}
       <div style={{ 
         marginBottom: '2rem',
         display: 'flex',
@@ -124,6 +152,7 @@ export default function Dashboard() {
           </div>
         </div>
         
+        {/* Location Display - Auto-detected, no dropdown */}
         <div style={{ 
           display: 'flex', 
           alignItems: 'center', 
@@ -140,12 +169,17 @@ export default function Dashboard() {
             display: 'inline-block',
           }}></span>
           <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-            📍 {getZoneDisplayName(zone)}
+            📍 {detectedLocation?.name || getZoneDisplayName(zone)}
           </span>
+          {detectedLocation?.lat && (
+            <span style={{ fontSize: '0.65rem', color: 'var(--text-tertiary)' }}>
+              ({detectedLocation.lat.toFixed(2)}, {detectedLocation.lon.toFixed(2)})
+            </span>
+          )}
         </div>
       </div>
 
-      {/* Stats Grid - Same as before */}
+      {/* Stats Grid */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
@@ -225,7 +259,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Rest of the dashboard remains the same */}
       {/* Live Conditions Section */}
       <div style={{ marginBottom: '2rem' }}>
         <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -335,7 +368,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Coverage Status & Recent Payouts - Same as before */}
+      {/* Coverage Status & Recent Payouts */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))',
