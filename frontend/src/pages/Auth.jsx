@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { loginUser, registerUser, googleLogin } from '../api/config';
+import { loginUser, registerUser } from '../api/config';
 import { 
   Shield, Mail, Lock, User, Phone, Eye, EyeOff, 
-  CheckCircle, XCircle, AlertCircle
+  CheckCircle, AlertCircle
 } from 'lucide-react';
 
 export default function Auth() {
@@ -33,29 +33,39 @@ export default function Auth() {
   const { login } = useAuth();
   const navigate = useNavigate();
 
-   useEffect(() => {
-    // Check if coming from Google OAuth redirect
+  // ✅ NEW: Auto-fill from Google OAuth callback
+  useEffect(() => {
+    // Check URL parameters first
     const urlParams = new URLSearchParams(window.location.search);
-    const code = urlParams.get('code');
+    const googleEmail = urlParams.get('googleEmail');
+    const googleName = urlParams.get('googleName');
     
-    if (code) {
-      console.log("🔐 Google auth code received:", code);
-      // After Google login, fetch user info
-      fetch('http://localhost:8080/api/auth/google/success', {
-        credentials: 'include'
-      })
-      .then(res => res.json())
-      .then(data => {
-        console.log("✅ Google user data:", data);
-        if (data.email) {
-          // Create or login user with Google email
-          login(data.email);
-          navigate('/dashboard');
-        }
-      })
-      .catch(err => console.error('Google login error:', err));
+    if (googleEmail) {
+      console.log("📧 Auto-filling Google email:", googleEmail);
+      setFormData(prev => ({
+        ...prev,
+        email: googleEmail,
+        name: googleName || prev.name
+      }));
+      // Clean URL without reloading the page
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else {
+      // Check localStorage as fallback
+      const storedEmail = localStorage.getItem('googleEmail');
+      const storedName = localStorage.getItem('googleName');
+      if (storedEmail && !formData.email) {
+        console.log("📧 Auto-filling from localStorage:", storedEmail);
+        setFormData(prev => ({
+          ...prev,
+          email: storedEmail,
+          name: storedName || prev.name
+        }));
+        // Clear localStorage after use
+        localStorage.removeItem('googleEmail');
+        localStorage.removeItem('googleName');
+      }
     }
-  }, []);
+  }, []); // Empty dependency array - runs once on mount
 
   // Password strength checker
   const checkPasswordStrength = (password) => {
@@ -179,10 +189,9 @@ export default function Auth() {
     }
   };
 
-  // Google Sign-In handler
+  // Google Sign-In handler - redirect to backend
   const handleGoogleSignIn = () => {
-    // For demo purposes - in production, implement actual Google OAuth
-    window.open('http://localhost:8080/oauth2/authorization/google', '_self');
+    window.location.href = 'https://delivershield-backend.onrender.com/oauth2/authorization/google';
   };
 
   return (
