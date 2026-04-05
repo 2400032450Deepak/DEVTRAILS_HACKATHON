@@ -10,10 +10,7 @@ venv/
 env/
 ENV/
 
-# Models (if large)
-*.pkl
-*.h5
-*.joblib
+
 
 # Logs
 *.log
