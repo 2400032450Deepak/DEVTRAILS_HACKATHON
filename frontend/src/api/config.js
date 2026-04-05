@@ -319,8 +319,18 @@ export const activatePlan = async (workerId, planId) => {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ userId: workerId, planId: planId })
   });
-  if (!res.ok) throw new Error("Could not activate plan");
-  return res.json();
+
+  const text = await res.text();
+
+  if (!res.ok) {
+    throw new Error(text || "Could not activate plan");
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { message: text || "Plan activated successfully" };
+  }
 };
 
 // ============= STATISTICS & DASHBOARD =============
