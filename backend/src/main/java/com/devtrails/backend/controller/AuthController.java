@@ -4,21 +4,26 @@ import com.devtrails.backend.dto.LoginRequest;
 import com.devtrails.backend.dto.RegisterRequest;
 import com.devtrails.backend.model.User;
 import com.devtrails.backend.service.AuthService;
+import com.devtrails.backend.repository.UserRepository;  // ✅ ADD THIS IMPORT
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;  // ✅ ADD THIS IMPORT
 
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
 
     private final AuthService authService;
+    private final UserRepository userRepository;  // ✅ ADD THIS FIELD
 
-    public AuthController(AuthService authService) {
+    // ✅ UPDATE CONSTRUCTOR
+    public AuthController(AuthService authService, UserRepository userRepository) {
         this.authService = authService;
+        this.userRepository = userRepository;
     }
 
     @PostMapping("/register")
@@ -88,6 +93,45 @@ public class AuthController {
             errorResponse.put("message", "Login failed: " + e.getMessage());
             
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
+        }
+    }
+
+    // ✅ ADD THIS NEW ENDPOINT
+    @GetMapping("/check-email/{email}")
+    public ResponseEntity<?> checkEmailExists(@PathVariable String email) {
+        System.out.println("🔍 Checking if email exists: " + email);
+        
+        try {
+            Optional<User> userOpt = userRepository.findByEmail(email);
+            
+            if (userOpt.isPresent()) {
+                User user = userOpt.get();
+                System.out.println("✅ Email found! User ID: " + user.getId());
+                
+                Map<String, Object> response = new HashMap<>();
+                response.put("exists", true);
+                response.put("userId", user.getId());
+                response.put("email", user.getEmail());
+                response.put("name", user.getName());
+                
+                return ResponseEntity.ok(response);
+            } else {
+                System.out.println("❌ Email not found: " + email);
+                
+                Map<String, Object> response = new HashMap<>();
+                response.put("exists", false);
+                
+                return ResponseEntity.ok(response);
+            }
+            
+        } catch (Exception e) {
+            System.err.println("❌ Error checking email: " + e.getMessage());
+            
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("exists", false);
+            errorResponse.put("error", e.getMessage());
+            
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         }
     }
 
