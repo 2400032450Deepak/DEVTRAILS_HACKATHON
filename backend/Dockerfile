@@ -1,28 +1,7 @@
-# -------- BUILD STAGE --------
-FROM maven:3.9.6-eclipse-temurin-17 AS build
-WORKDIR /app
-
-# Copy pom.xml first (for caching)
-COPY pom.xml .
-RUN mvn dependency:go-offline
-
-# Copy source code
-COPY src ./src
-
-# Build jar
-RUN mvn clean package -DskipTests
-
-
-# -------- RUN STAGE --------
-FROM eclipse-temurin:17-jdk-alpine
+FROM azul/zulu-openjdk-alpine:17
 
 WORKDIR /app
-
-# Copy jar from build stage
-COPY --from=build /app/target/*.jar app.jar
-
-# Expose port
+COPY . .
+RUN chmod +x mvnw && ./mvnw clean package -DskipTests
 EXPOSE 8080
-
-# Run application
-ENTRYPOINT ["java","-jar","app.jar"]
+CMD ["java", "-jar", "target/devtrails-backend-0.0.1-SNAPSHOT.jar"]
