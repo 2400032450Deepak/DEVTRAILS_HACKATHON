@@ -2,6 +2,7 @@ import React, { useEffect, useState, useContext } from 'react';
 import { getLiveTriggers } from '../api/config';
 import { useAuth } from '../context/AuthContext';
 import { ToastContext } from '../App';
+import { ZONE_DISPLAY_NAMES } from '../utils/constants';
 import { 
   Activity, Zap, Bell, RefreshCw, CloudRain, Wind, Thermometer, 
   AlertTriangle, CheckCircle, TrendingUp, MapPin, Clock, DollarSign,
@@ -17,8 +18,11 @@ export default function LiveMonitor() {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [triggerHistory, setTriggerHistory] = useState([]);
+  const [error, setError] = useState(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   const fetchData = async () => {
+    setError(null);
     try {
       const triggerData = await getLiveTriggers(zone);
       setData(triggerData);
@@ -42,6 +46,7 @@ export default function LiveMonitor() {
       }
     } catch (error) {
       console.error('Live monitor error:', error);
+      setError(error.message || 'Failed to fetch live data');
       if (showToast) showToast('Error fetching live data', 'error');
     } finally {
       setLoading(false);
@@ -80,6 +85,13 @@ export default function LiveMonitor() {
     return '-';
   };
 
+  const handleRetry = () => {
+    setLoading(true);
+    setError(null);
+    setRetryCount(prev => prev + 1);
+    fetchData();
+  };
+
   useEffect(() => {
     fetchData();
     let interval;
@@ -87,16 +99,68 @@ export default function LiveMonitor() {
       interval = setInterval(fetchData, 15000); // Refresh every 15 seconds
     }
     return () => clearInterval(interval);
-  }, [zone, autoRefresh]);
+  }, [zone, autoRefresh, retryCount]);
+
+  // Error state with retry button
+  if (error) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        flexDirection: 'column',
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        minHeight: '60vh',
+        gap: '1rem',
+        padding: '2rem'
+      }}>
+        <div style={{
+          background: 'rgba(239, 68, 68, 0.1)',
+          padding: '2rem',
+          borderRadius: '1rem',
+          textAlign: 'center',
+          border: '1px solid var(--danger)',
+          maxWidth: '400px'
+        }}>
+          <AlertTriangle size={48} style={{ color: 'var(--danger)', marginBottom: '1rem' }} />
+          <h3 style={{ marginBottom: '0.5rem', color: 'var(--text-primary)' }}>Unable to Fetch Live Data</h3>
+          <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem', fontSize: '0.875rem' }}>{error}</p>
+          <button
+            onClick={handleRetry}
+            style={{
+              padding: '0.5rem 1.5rem',
+              background: 'var(--accent-primary)',
+              border: 'none',
+              borderRadius: '0.5rem',
+              color: 'white',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              fontSize: '0.875rem',
+              fontWeight: 500
+            }}
+          >
+            <RefreshCw size={16} />
+            Retry Now
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) return <LoadingSpinner message="Connecting to telemetry stream..." />;
   if (!data) return <LoadingSpinner message="Awaiting data stream..." />;
 
-  // ✅ SAFE: Use default values if live_conditions is undefined
+  // SAFE: Use default values if live_conditions is undefined
   const conditions = data?.live_conditions || { rainfall_mm_hr: 0, aqi: 0, temperature_c: 0 };
   const thresholds = data?.thresholds || { rainfall_mm_hr: 40, aqi: 300, temperature_c: 42 };
   const totalPayout = calculatePayout(data);
   const isAnyTriggered = totalPayout > 0;
+
+  // Calculate excess payouts
+  const rainfallExcess = Math.min(200, ((conditions?.rainfall_mm_hr || 0) - 40) * 10);
+  const aqiExcess = Math.min(150, ((conditions?.aqi || 0) - 300) * 2);
+  const tempExcess = Math.min(200, ((conditions?.temperature_c || 0) - 42) * 15);
 
   // Calculate percentages for progress bars (with safe defaults)
   const rainfallPercent = Math.min(((conditions?.rainfall_mm_hr || 0) / 80) * 100, 100);
@@ -126,7 +190,7 @@ export default function LiveMonitor() {
           </h1>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
             <MapPin size={12} />
-            <span>{zone?.replace('_', ' ')}</span>
+            <span>{ZONE_DISPLAY_NAMES[zone] || zone?.replace(/_/g, ' ') || 'Unknown'}</span>
             <Clock size={12} style={{ marginLeft: '0.5rem' }} />
             <span>Last updated: {lastUpdated?.toLocaleTimeString() || 'Just now'}</span>
           </div>
@@ -284,7 +348,7 @@ export default function LiveMonitor() {
             </div>
             {(conditions?.rainfall_mm_hr || 0) > 40 && (
               <div style={{ marginTop: '1rem', padding: '0.5rem', background: 'var(--danger-glow)', borderRadius: '0.5rem', fontSize: '0.75rem' }}>
-                💰 Payout triggered: ₹300 + ₹{((conditions?.rainfall_mm_hr || 0) - 40) * 10} excess
+                💰 Payout triggered: ₹{300 + rainfallExcess} (₹300 base + ₹{rainfallExcess} excess)
               </div>
             )}
           </div>
@@ -345,7 +409,7 @@ export default function LiveMonitor() {
             </div>
             {(conditions?.aqi || 0) > 300 && (
               <div style={{ marginTop: '1rem', padding: '0.5rem', background: 'var(--danger-glow)', borderRadius: '0.5rem', fontSize: '0.75rem' }}>
-                💰 Payout triggered: ₹250 + ₹{((conditions?.aqi || 0) - 300) * 2} excess
+                💰 Payout triggered: ₹{250 + aqiExcess} (₹250 base + ₹{aqiExcess} excess)
               </div>
             )}
           </div>
@@ -406,7 +470,7 @@ export default function LiveMonitor() {
             </div>
             {(conditions?.temperature_c || 0) > 42 && (
               <div style={{ marginTop: '1rem', padding: '0.5rem', background: 'var(--danger-glow)', borderRadius: '0.5rem', fontSize: '0.75rem' }}>
-                💰 Payout triggered: ₹200 + ₹{((conditions?.temperature_c || 0) - 42) * 15} excess
+                💰 Payout triggered: ₹{200 + tempExcess} (₹200 base + ₹{tempExcess} excess)
               </div>
             )}
           </div>
@@ -441,13 +505,13 @@ export default function LiveMonitor() {
               fontSize: '0.75rem',
             }}>
               {(conditions?.rainfall_mm_hr || 0) > 40 && (
-                <div style={{ marginBottom: '0.5rem' }}>✓ Rainfall: {conditions?.rainfall_mm_hr}mm/hr → ₹{300 + Math.min(200, ((conditions?.rainfall_mm_hr || 0) - 40) * 10)}</div>
+                <div style={{ marginBottom: '0.5rem' }}>✓ Rainfall: {conditions?.rainfall_mm_hr}mm/hr → ₹{300 + rainfallExcess} (₹300 + ₹{rainfallExcess} excess)</div>
               )}
               {(conditions?.aqi || 0) > 300 && (
-                <div style={{ marginBottom: '0.5rem' }}>✓ AQI: {conditions?.aqi} → ₹{250 + Math.min(150, ((conditions?.aqi || 0) - 300) * 2)}</div>
+                <div style={{ marginBottom: '0.5rem' }}>✓ AQI: {conditions?.aqi} → ₹{250 + aqiExcess} (₹250 + ₹{aqiExcess} excess)</div>
               )}
               {(conditions?.temperature_c || 0) > 42 && (
-                <div style={{ marginBottom: '0.5rem' }}>✓ Temperature: {conditions?.temperature_c}°C → ₹{200 + Math.min(200, ((conditions?.temperature_c || 0) - 42) * 15)}</div>
+                <div style={{ marginBottom: '0.5rem' }}>✓ Temperature: {conditions?.temperature_c}°C → ₹{200 + tempExcess} (₹200 + ₹{tempExcess} excess)</div>
               )}
               {!isAnyTriggered && (
                 <div style={{ color: 'var(--text-tertiary)' }}>○ No active triggers • Monitoring conditions</div>

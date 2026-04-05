@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { loginUser, registerUser } from '../api/config';
 import { 
   Shield, Mail, Lock, User, Phone, Eye, EyeOff, 
-  CheckCircle, AlertCircle
+  CheckCircle, AlertCircle, MapPin, Loader
 } from 'lucide-react';
 
 export default function Auth() {
@@ -15,11 +15,14 @@ export default function Auth() {
     email: '',
     phone: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    zone: ''  // ✅ Added zone field
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [detectingLocation, setDetectingLocation] = useState(false);
+  const [detectedCity, setDetectedCity] = useState('');
   const [passwordStrength, setPasswordStrength] = useState({
     score: 0,
     message: '',
@@ -30,8 +33,63 @@ export default function Auth() {
     hasSpecial: false
   });
 
-  const { login } = useAuth();
+  const { login, setZone } = useAuth();
   const navigate = useNavigate();
+
+  // ✅ Auto-detect location from GPS
+  const detectLocationFromGPS = () => {
+    setDetectingLocation(true);
+    
+    if (!navigator.geolocation) {
+      console.log("Geolocation not supported");
+      setDetectingLocation(false);
+      return;
+    }
+    
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        console.log("📍 GPS Location detected:", latitude, longitude);
+        
+        try {
+          // Reverse geocode to get city name
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=10&addressdetails=1`
+          );
+          const data = await response.json();
+          
+          const city = data.address?.city || 
+                      data.address?.town || 
+                      data.address?.village || 
+                      data.address?.state_district ||
+                      '';
+          
+          if (city) {
+            setDetectedCity(city);
+            setFormData(prev => ({ ...prev, zone: city }));
+            console.log("📍 City detected:", city);
+          } else {
+            // Try to get state as fallback
+            const state = data.address?.state || '';
+            if (state) {
+              setDetectedCity(state);
+              setFormData(prev => ({ ...prev, zone: state }));
+              console.log("📍 State detected:", state);
+            }
+          }
+        } catch (error) {
+          console.error("Reverse geocoding error:", error);
+        } finally {
+          setDetectingLocation(false);
+        }
+      },
+      (error) => {
+        console.warn("Location access denied or error:", error.message);
+        setDetectingLocation(false);
+      },
+      { timeout: 10000, enableHighAccuracy: true }
+    );
+  };
 
   // Auto-fill from Google OAuth callback
   useEffect(() => {
@@ -61,6 +119,13 @@ export default function Auth() {
       }
     }
   }, []);
+
+  // ✅ Auto-detect location when switching to Sign Up mode
+  useEffect(() => {
+    if (!isLogin && !formData.zone && !detectedCity && !detectingLocation) {
+      detectLocationFromGPS();
+    }
+  }, [isLogin]);
 
   // Password strength checker
   const checkPasswordStrength = (password) => {
@@ -167,6 +232,33 @@ export default function Auth() {
         navigate('/dashboard');
       } else {
         await registerUser(formData.name, formData.email, formData.phone, formData.password);
+        
+        // ✅ Store detected zone if available
+        if (formData.zone && setZone) {
+          // Map city to zone (you can expand this mapping)
+          const cityToZone = {
+            'mumbai': 'Zone_B_Mumbai',
+            'delhi': 'Zone_C_Delhi', 
+            'hyderabad': 'Zone_D_Hyderabad',
+            'chennai': 'Zone_E_Chennai',
+            'bangalore': 'Zone_A_Bangalore',
+            'bengaluru': 'Zone_A_Bangalore'
+          };
+          
+          const cityLower = formData.zone.toLowerCase();
+          let mappedZone = 'Zone_B_Mumbai'; // default
+          
+          for (const [city, zone] of Object.entries(cityToZone)) {
+            if (cityLower.includes(city)) {
+              mappedZone = zone;
+              break;
+            }
+          }
+          
+          setZone(mappedZone);
+          localStorage.setItem('userZone', mappedZone);
+        }
+        
         setSuccessMsg('Registration successful! Please login.');
         setIsLogin(true);
         setFormData({
@@ -174,8 +266,10 @@ export default function Auth() {
           email: '',
           phone: '',
           password: '',
-          confirmPassword: ''
+          confirmPassword: '',
+          zone: ''
         });
+        setDetectedCity('');
       }
     } catch (err) {
       setError(err.message || 'Authentication failed. Please try again.');
@@ -292,6 +386,61 @@ export default function Auth() {
                   className="input-field"
                 />
               </div>
+
+              {/* ✅ Zone/City field with auto-detection */}
+              <div className="input-group">
+                <MapPin size={18} className="input-icon" />
+                <input
+                  type="text"
+                  name="zone"
+                  placeholder="Your City / Zone"
+                  value={formData.zone}
+                  onChange={handleChange}
+                  className="input-field"
+                  style={{ paddingRight: detectingLocation ? '2.5rem' : '1rem' }}
+                />
+                {detectingLocation && (
+                  <div style={{
+                    position: 'absolute',
+                    right: '1rem',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                  }}>
+                    <Loader size={16} className="spin" style={{ color: '#667eea' }} />
+                  </div>
+                )}
+              </div>
+
+              {/* ✅ Show detected location message */}
+              {detectedCity && !formData.zone && (
+                <div style={{
+                  fontSize: '0.7rem',
+                  color: '#10b981',
+                  marginTop: '-0.5rem',
+                  marginBottom: '0.5rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.25rem'
+                }}>
+                  <MapPin size={12} />
+                  Detected: {detectedCity}
+                </div>
+              )}
+
+              {detectingLocation && (
+                <div style={{
+                  fontSize: '0.7rem',
+                  color: '#667eea',
+                  marginTop: '-0.5rem',
+                  marginBottom: '0.5rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.25rem'
+                }}>
+                  <Loader size={12} className="spin" />
+                  Detecting your location...
+                </div>
+              )}
             </>
           )}
 
@@ -410,8 +559,6 @@ export default function Auth() {
           </button>
         </form>
 
-        {/* ✅ REMOVED: Divider and Google Sign-In Button */}
-
         {/* Toggle between Login/Register */}
         <div style={{ marginTop: '1.5rem', textAlign: 'center' }}>
           <button
@@ -424,8 +571,10 @@ export default function Auth() {
                 email: '',
                 phone: '',
                 password: '',
-                confirmPassword: ''
+                confirmPassword: '',
+                zone: ''
               });
+              setDetectedCity('');
             }}
             style={{
               background: 'none',
@@ -487,6 +636,13 @@ export default function Auth() {
           border: none;
           cursor: pointer;
           color: #9ca3af;
+        }
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        .spin {
+          animation: spin 1s linear infinite;
         }
       `}</style>
     </div>

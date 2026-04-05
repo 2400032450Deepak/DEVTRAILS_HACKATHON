@@ -2,6 +2,7 @@ import React, { useEffect, useState, useContext } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getWorkerProfile, getLiveTriggers, getMyPlan, getPayoutHistory } from '../api/config';
 import { ToastContext } from '../App';
+import { ZONE_DISPLAY_NAMES } from '../utils/constants';
 import { Shield, TrendingUp, Award, Clock, CloudRain, Wind, Thermometer, DollarSign, Calendar, CheckCircle, AlertTriangle, Zap, User } from 'lucide-react';
 import LoadingSpinner from '../components/LoadingSpinner';
 
@@ -82,32 +83,21 @@ export default function Dashboard() {
   // Format unique ID for display (show last 6 digits or custom format)
   const formattedUserId = String(userUniqueId).slice(-6);
   
+  // Get readable zone name
+  const getReadableZoneName = () => {
+    if (detectedLocation?.name) return detectedLocation.name;
+    return ZONE_DISPLAY_NAMES[zone] || zone?.replace(/_/g, ' ') || 'Unknown';
+  };
+  
   const getRiskColor = (level) => {
     if (level === 'High') return '#ef4444';
     if (level === 'Moderate') return '#f59e0b';
     return '#10b981';
   };
 
-  const getRiskBgColor = (level) => {
-    if (level === 'High') return 'rgba(239, 68, 68, 0.1)';
-    if (level === 'Moderate') return 'rgba(245, 158, 11, 0.1)';
-    return 'rgba(16, 185, 129, 0.1)';
-  };
-
-  // const getZoneDisplayName = (zoneValue) => {
-  //   const zoneMap = {
-  //     'Zone_A_Bangalore': 'Bangalore',
-  //     'Zone_B_Mumbai': 'Mumbai',
-  //     'Zone_C_Delhi': 'Delhi',
-  //     'Zone_D_Hyderabad': 'Hyderabad',
-  //     'Zone_E_Chennai': 'Chennai'
-  //   };
-  //   return zoneMap[zoneValue] || zoneValue;
-  // };
-
   return (
     <div style={{ padding: '1.5rem', maxWidth: '1400px', margin: '0 auto' }}>
-      {/* Welcome Header with User Info - No Location Selector Dropdown */}
+      {/* Welcome Header with User Info */}
       <div style={{ 
         marginBottom: '2rem',
         display: 'flex',
@@ -152,7 +142,7 @@ export default function Dashboard() {
           </div>
         </div>
         
-        {/* Location Display - Auto-detected, no dropdown */}
+        {/* Location Display - Auto-detected */}
         <div style={{ 
           display: 'flex', 
           alignItems: 'center', 
@@ -169,7 +159,7 @@ export default function Dashboard() {
             display: 'inline-block',
           }}></span>
           <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-            📍 {detectedLocation?.name || getZoneDisplayName(zone)}
+            📍 {getReadableZoneName()}
           </span>
           {detectedLocation?.lat && (
             <span style={{ fontSize: '0.65rem', color: 'var(--text-tertiary)' }}>
@@ -430,7 +420,7 @@ export default function Dashboard() {
               <Shield size={48} style={{ color: 'var(--text-tertiary)', marginBottom: '1rem' }} />
               <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem' }}>No active coverage detected</p>
               <button
-                onClick={() => window.location.href = '/dashboard/coverage'}
+                onClick={() => window.location.href = '/my-coverage'}
                 style={{
                   background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                   color: 'white',
@@ -470,10 +460,15 @@ export default function Dashboard() {
                   borderBottom: idx < recentPayouts.length - 1 ? '1px solid var(--border-light)' : 'none',
                 }}>
                   <div>
-                    <div style={{ fontWeight: 500 }}>{payout.reason}</div>
+                    <div style={{ fontWeight: 500 }}>{payout.reason || 'Payout credited'}</div>
                     <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                      <Calendar size={10} /> {payout.date}
+                      <Calendar size={10} /> {payout.date || new Date(payout.timestamp).toLocaleDateString()}
                     </div>
+                    {payout.trigger_value && (
+                      <div style={{ fontSize: '0.65rem', color: 'var(--text-tertiary)', marginTop: '0.25rem' }}>
+                        Trigger: {payout.trigger_value}
+                      </div>
+                    )}
                   </div>
                   <div style={{ fontWeight: 'bold', color: 'var(--success)' }}>
                     +₹{payout.amount}
@@ -485,6 +480,7 @@ export default function Dashboard() {
             <div style={{ textAlign: 'center', padding: '2rem' }}>
               <DollarSign size={48} style={{ color: 'var(--text-tertiary)', marginBottom: '1rem' }} />
               <p style={{ color: 'var(--text-secondary)' }}>No payouts yet</p>
+              <p style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)' }}>Payouts will appear when triggers are activated</p>
             </div>
           )}
           

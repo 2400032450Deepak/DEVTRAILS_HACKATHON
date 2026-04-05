@@ -1,16 +1,27 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, Menu } from 'lucide-react';
+import { Bell, Menu, Phone } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function Topbar({ onMenuClick }) {
-  const { setZone } = useAuth();
+  const { setZone, user } = useAuth();
   const [time, setTime] = useState("");
+  const [profile, setProfile] = useState(null);
   const [notifications, setNotifications] = useState([
     { id: 1, message: "Heavy rainfall alert in your zone", read: false, time: "2 min ago" },
     { id: 2, message: "Your payout of ₹350 has been credited", read: false, time: "1 hour ago" },
     { id: 3, message: "Weekly premium due in 2 days", read: false, time: "5 hours ago" }
   ]);
   const [showNotifications, setShowNotifications] = useState(false);
+
+  // Fetch user profile for display
+  useEffect(() => {
+    if (user?.id) {
+      fetch(`https://delivershield-backend.onrender.com/api/workers/${user.id}`)
+        .then(res => res.json())
+        .then(data => setProfile(data))
+        .catch(err => console.error('Failed to fetch profile:', err));
+    }
+  }, [user]);
 
   // Auto-detect location (runs in background)
   const detectLocation = async () => {
@@ -89,6 +100,20 @@ export default function Topbar({ onMenuClick }) {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
   };
 
+  // Format phone number for display
+  const formatPhoneNumber = (phone) => {
+    if (!phone) return 'Not available';
+    // Remove any non-digit characters
+    const digits = phone.replace(/\D/g, '');
+    if (digits.length === 10) {
+      return `+91 ${digits.slice(0, 5)} ${digits.slice(5)}`;
+    }
+    if (digits.length === 12 && digits.startsWith('91')) {
+      return `+${digits.slice(0, 2)} ${digits.slice(2, 7)} ${digits.slice(7)}`;
+    }
+    return phone;
+  };
+
   return (
     <header style={{
       height: '64px',
@@ -138,6 +163,31 @@ export default function Topbar({ onMenuClick }) {
       {/* RIGHT */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
         
+        {/* ✅ Logged in as indicator */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+          background: 'var(--bg-primary)',
+          padding: '0.3rem 0.8rem',
+          borderRadius: '2rem',
+          border: '1px solid var(--border-light)'
+        }}>
+          <Phone size={12} style={{ color: 'var(--success)' }} />
+          <span style={{ fontSize: '0.7rem', fontWeight: 500, color: 'var(--text-primary)' }}>
+            {formatPhoneNumber(profile?.phone)}
+          </span>
+          <div style={{
+            width: '6px',
+            height: '6px',
+            background: 'var(--success)',
+            borderRadius: '50%'
+          }} />
+          <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>
+            Active
+          </span>
+        </div>
+
         {/* Notifications */}
         <div style={{ position: 'relative' }}>
           <button
