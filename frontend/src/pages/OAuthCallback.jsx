@@ -10,6 +10,7 @@ export default function OAuthCallback() {
   const [name, setName] = useState('');
   const [countdown, setCountdown] = useState(3);
   const [processed, setProcessed] = useState(false);
+  const [checkingUser, setCheckingUser] = useState(true);
 
   useEffect(() => {
     if (processed) return;
@@ -24,13 +25,55 @@ export default function OAuthCallback() {
     console.log("Email from URL:", emailParam);
     console.log("Name from URL:", nameParam);
     
-    if (emailParam) {
-      setEmail(emailParam);
-      setName(nameParam || '');
+    if (!emailParam) {
+      setError("No email received from Google. Please try again.");
+      setTimeout(() => navigate('/login', { replace: true }), 3000);
+      setProcessed(true);
+      return;
+    }
+    
+    setEmail(emailParam);
+    setName(nameParam || '');
+    
+    // Save to localStorage for auto-fill in registration form
+    localStorage.setItem('googleEmail', emailParam);
+    if (nameParam) localStorage.setItem('googleName', nameParam);
+    
+    // Check if user already exists in database
+    const checkExistingUser = async () => {
+      try {
+        console.log("🔍 Checking if user exists with email:", emailParam);
+        
+        // Try to find user by email
+        const response = await fetch(`https://delivershield-backend.onrender.com/api/workers/by-email/${encodeURIComponent(emailParam)}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        });
+        
+        if (response.ok) {
+          // User exists! Auto-login them
+          const userData = await response.json();
+          console.log("✅ Existing user found:", userData);
+          
+          if (userData.id) {
+            // Login the user
+            login(userData.id.toString());
+            // Redirect to dashboard
+            navigate('/dashboard', { replace: true });
+            return;
+          }
+        } else {
+          console.log("📝 User not found, needs registration");
+        }
+      } catch (err) {
+        console.log("Error checking user:", err.message);
+        // Continue to registration flow
+      }
       
-      // Save to localStorage for auto-fill in registration form
-      localStorage.setItem('googleEmail', emailParam);
-      if (nameParam) localStorage.setItem('googleName', nameParam);
+      // User doesn't exist - redirect to registration with auto-fill
+      setCheckingUser(false);
       
       // Start countdown
       const timer = setInterval(() => {
@@ -52,11 +95,9 @@ export default function OAuthCallback() {
         clearInterval(timer);
         clearTimeout(redirectTimer);
       };
-    } else {
-      setError("No email received from Google. Please try again.");
-      setTimeout(() => navigate('/login', { replace: true }), 3000);
-    }
+    };
     
+    checkExistingUser();
     setProcessed(true);
   }, [login, navigate, processed]);
 
@@ -89,6 +130,38 @@ export default function OAuthCallback() {
             Go to Login Now
           </button>
         </div>
+      </div>
+    );
+  }
+
+  if (checkingUser) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        height: '100vh',
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        color: 'white'
+      }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{
+            width: '50px',
+            height: '50px',
+            border: '3px solid rgba(255,255,255,0.3)',
+            borderTopColor: 'white',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite',
+            margin: '0 auto 20px'
+          }}></div>
+          <h2>Checking your account...</h2>
+          <p>Please wait</p>
+        </div>
+        <style>{`
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
       </div>
     );
   }
