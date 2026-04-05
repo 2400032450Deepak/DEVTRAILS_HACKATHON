@@ -31,7 +31,14 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .csrf(csrf -> csrf.disable())
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/**", "/oauth2/**", "/login/**").permitAll()
+                // ✅ Public endpoints - no authentication required
+                .requestMatchers("/api/health", "/health").permitAll()
+                .requestMatchers("/api/auth/**").permitAll()
+                .requestMatchers("/api/plans").permitAll()
+                .requestMatchers("/api/payouts/**").permitAll()
+                .requestMatchers("/api/workers/**").permitAll()
+                .requestMatchers("/oauth2/**", "/login/**").permitAll()
+                // All other endpoints require authentication
                 .anyRequest().authenticated()
             )
             .oauth2Login(oauth2 -> oauth2
@@ -76,7 +83,11 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList("http://localhost:5173"));
+        configuration.setAllowedOrigins(Arrays.asList(
+            "https://devtrails-frontend-main.vercel.app",
+            "http://localhost:5173",
+            "http://localhost:3000"
+        ));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With", "Accept", "Origin"));
         configuration.setExposedHeaders(Arrays.asList("Access-Control-Allow-Origin", "Access-Control-Allow-Credentials"));
