@@ -1,8 +1,11 @@
 package com.devtrails.backend.dto;
 
+import lombok.Data;
+
+@Data
 public class RegisterRequest {
-    public String name;
-    public String email;
-    public String password;
-    public String phone; // ✅ ADD THIS
+    private String name;
+    private String email;
+    private String password;
+    private String phone;
 }

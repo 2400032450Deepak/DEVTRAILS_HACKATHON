@@ -1,5 +1,9 @@
 package com.devtrails.backend.dto;
+
+import lombok.Data;
+
+@Data
 public class LoginRequest {
-    public String phone;
-    public String password;
+    private String phone;
+    private String password;
 }
