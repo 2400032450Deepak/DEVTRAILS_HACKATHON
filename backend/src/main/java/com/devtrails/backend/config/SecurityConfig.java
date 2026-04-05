@@ -31,14 +31,12 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .csrf(csrf -> csrf.disable())
             .authorizeHttpRequests(auth -> auth
-                // ✅ Public endpoints - no authentication required
                 .requestMatchers("/api/health", "/health").permitAll()
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/api/plans").permitAll()
                 .requestMatchers("/api/payouts/**").permitAll()
                 .requestMatchers("/api/workers/**").permitAll()
                 .requestMatchers("/oauth2/**", "/login/**").permitAll()
-                // All other endpoints require authentication
                 .anyRequest().authenticated()
             )
             .oauth2Login(oauth2 -> oauth2
@@ -48,23 +46,28 @@ public class SecurityConfig {
                     .userService(oauth2UserService())
                 )
             );
-        
+
         return http.build();
     }
 
+    // ✅ FIXED: Redirect to Vercel instead of localhost
     @Bean
     public AuthenticationSuccessHandler customSuccessHandler() {
         return new AuthenticationSuccessHandler() {
             @Override
-            public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
-                                                Authentication authentication) throws IOException, ServletException {
+            public void onAuthenticationSuccess(HttpServletRequest request,
+                                                HttpServletResponse response,
+                                                Authentication authentication)
+                    throws IOException, ServletException {
+
                 OAuth2User oauth2User = (OAuth2User) authentication.getPrincipal();
+
                 String email = oauth2User.getAttribute("email");
                 String name = oauth2User.getAttribute("name");
-                
+
                 System.out.println("✅ Google Login Success - Email: " + email + ", Name: " + name);
-                
-                response.sendRedirect("http://localhost:5173/oauth/callback");
+
+                response.sendRedirect("https://devtrails-frontend-main.vercel.app/oauth/callback");
             }
         };
     }
@@ -80,22 +83,30 @@ public class SecurityConfig {
         };
     }
 
+    // ✅ FINAL CORS FIX (IMPORTANT)
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList(
-            "https://devtrails-frontend-main.vercel.app",
-            "http://localhost:5173",
-            "http://localhost:3000"
+
+        configuration.setAllowedOriginPatterns(Arrays.asList(
+                "https://devtrails-frontend-main.vercel.app",
+                "http://localhost:5173",
+                "http://localhost:3000"
         ));
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With", "Accept", "Origin"));
-        configuration.setExposedHeaders(Arrays.asList("Access-Control-Allow-Origin", "Access-Control-Allow-Credentials"));
+
+        configuration.setAllowedMethods(Arrays.asList(
+                "GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"
+        ));
+
+        configuration.setAllowedHeaders(Arrays.asList("*"));
+
         configuration.setAllowCredentials(true);
+
         configuration.setMaxAge(3600L);
-        
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
+
         return source;
     }
 }
