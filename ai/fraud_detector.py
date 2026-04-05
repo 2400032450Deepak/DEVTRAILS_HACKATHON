@@ -1,61 +1,70 @@
-import pandas as pd
 import numpy as np
-from sklearn.ensemble import IsolationForest
-import joblib
 
-FRAUD_FEATURES = [
-    "gps_speed_variance",
-    "location_jump_km",
-    "num_deliveries",
-    "active_hours",
-    "daily_earnings_inr",
-]
-
-def train_fraud_detector(df):
-    X = df[FRAUD_FEATURES].copy()
+def predict_fraud(model, data):
+    """
+    Rule-based fraud detection (simpler and more reliable)
+    """
+    # Extract features
+    daily_earnings = data.get('daily_earnings_inr', 0)
+    weekly_earnings = data.get('weekly_earnings_inr', 0)
+    num_deliveries = data.get('num_deliveries', 0)
+    active_hours = data.get('active_hours', 0)
+    gps_speed_variance = data.get('gps_speed_variance', 0)
+    location_jump = data.get('location_jump_km', 0)
+    rainfall = data.get('rainfall_mm_hr', 0)
+    aqi = data.get('aqi', 0)
     
-    # Isolation Forest: contamination = expected fraction of fraud (~5%)
-    model = IsolationForest(
-        n_estimators=200,
-        contamination=0.05,
-        random_state=42,
-        max_samples="auto"
-    )
-    model.fit(X)
+    # Rule-based fraud detection
+    is_fraud = False
+    reasons = []
+    anomaly_score = 0
     
-    # -1 = anomaly (fraud), 1 = normal
-    df["fraud_flag"] = model.predict(X)
-    df["fraud_score"] = model.decision_function(X)  # More negative = more suspicious
-    df["is_fraud"] = df["fraud_flag"].apply(lambda x: True if x == -1 else False)
-
-    fraud_count = df["is_fraud"].sum()
-    print(f"Detected {fraud_count} suspicious workers out of {len(df)}")
+    # Rule 1: Suspicious GPS patterns
+    if gps_speed_variance > 15:
+        is_fraud = True
+        reasons.append("Unrealistic GPS speed variance")
+        anomaly_score += 0.3
     
-    joblib.dump(model, "fraud_model.pkl")
-    return model, df
-
-def predict_fraud(model, worker_dict):
-    X = pd.DataFrame([worker_dict])[FRAUD_FEATURES]
-    pred = model.predict(X)[0]
-    score = model.decision_function(X)[0]
+    # Rule 2: Impossible location jumps
+    if location_jump > 5:
+        is_fraud = True
+        reasons.append("Impossible location jump")
+        anomaly_score += 0.3
+    
+    # Rule 3: Working too many hours
+    if active_hours > 16:
+        is_fraud = True
+        reasons.append("Excessive working hours")
+        anomaly_score += 0.2
+    
+    # Rule 4: Unrealistic delivery count
+    if num_deliveries > 50:
+        is_fraud = True
+        reasons.append("Unrealistic delivery count")
+        anomaly_score += 0.2
+    
+    # Rule 5: Abnormal earnings
+    if daily_earnings > 2000:
+        is_fraud = True
+        reasons.append("Abnormally high daily earnings")
+        anomaly_score += 0.2
+    
+    if weekly_earnings > 15000:
+        is_fraud = True
+        reasons.append("Abnormally high weekly earnings")
+        anomaly_score += 0.2
+    
+    # Cap anomaly score at 1.0
+    anomaly_score = min(anomaly_score, 1.0)
+    
+    # If no fraud detected, score is 0
+    if not is_fraud:
+        anomaly_score = 0.0
+    
     return {
-        "is_fraud": pred == -1,
-        "anomaly_score": round(score, 4),
-        "verdict": "🚨 SUSPICIOUS - Flag for review" if pred == -1 else "✅ Normal activity"
+        "is_fraud": is_fraud,
+        "verdict": "Fraudulent" if is_fraud else "Normal",
+        "anomaly_score": anomaly_score,
+        "reasons": reasons,
+        "confidence": 1.0 if is_fraud else 0.0
     }
-
-if __name__ == "__main__":
-    df = pd.read_csv("worker_data.csv")
-    model, df_flagged = train_fraud_detector(df)
-    df_flagged.to_csv("worker_data_fraud_flagged.csv", index=False)
-
-    # Test a suspicious worker (impossibly high speed variance + huge location jump)
-    suspicious_worker = {
-        "gps_speed_variance": 95.0,    # Abnormally high
-        "location_jump_km": 50.0,      # Teleportation jump
-        "num_deliveries": 38,
-        "active_hours": 2.0,           # Too many deliveries in too little time
-        "daily_earnings_inr": 1800,
-    }
-    result = predict_fraud(model, suspicious_worker)
-    print(result)
