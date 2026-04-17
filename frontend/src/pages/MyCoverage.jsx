@@ -54,7 +54,7 @@ export default function MyCoverage() {
       fetchPlans();
     }
   }, [user]);
-  
+
   useEffect(() => {
   if (activePlan) {
     sessionStorage.setItem('activePlan', JSON.stringify(activePlan));
@@ -469,7 +469,7 @@ export default function MyCoverage() {
                 <Wallet size={48} style={{ color: 'var(--accent-primary)', marginBottom: '0.5rem' }} />
                 <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>Complete Payment</h2>
                 <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-                  {selectedPlan?.name} - ₹{Math.round(selectedPlan?.premium * getRiskAdjustment(selectedPlan?.id))}/week
+                  {selectedPlan?.name} - ₹{selectedPlan?.premium}/week
                 </p>
               </div>
               
@@ -569,7 +569,7 @@ export default function MyCoverage() {
                   opacity: paymentProcessing ? 0.7 : 1,
                 }}
               >
-                {paymentProcessing ? 'Processing Payment...' : `Pay ₹${Math.round(selectedPlan?.premium * getRiskAdjustment(selectedPlan?.id))}`}
+                {paymentProcessing ? 'Processing Payment...' : `Pay ₹${selectedPlan?.premium}`}
               </button>
             </div>
           </div>
