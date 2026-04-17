@@ -1,147 +1,146 @@
-# No need to import numpy - it's not used in this file
+import joblib
+import numpy as np
+import os
+from sklearn.ensemble import IsolationForest
 
+class FraudDetector:
+    def __init__(self):
+        self.model = None
+        self.load_or_train_model()
+    
+    def load_or_train_model(self):
+        """Load trained Isolation Forest model"""
+        model_path = "fraud_model.pkl"
+        
+        if os.path.exists(model_path):
+            self.model = joblib.load(model_path)
+            print("✅ Loaded existing fraud model")
+        else:
+            self.train_model()
+    
+    def train_model(self):
+        """Train Isolation Forest for anomaly detection"""
+        # Generate synthetic normal data (80% of samples)
+        np.random.seed(42)
+        normal_data = []
+        
+        # Normal patterns
+        for _ in range(200):
+            normal_data.append([
+                np.random.uniform(1, 8),      # gps_speed_variance
+                np.random.uniform(0, 2),      # location_jump_km
+                np.random.uniform(4, 12),     # active_hours
+                np.random.uniform(0.5, 2),    # motion_variance
+                np.random.uniform(1, 5)       # claim_frequency
+            ])
+        
+        # Anomalous patterns (fraud)
+        fraud_data = []
+        for _ in range(50):
+            fraud_data.append([
+                np.random.uniform(15, 30),    # high gps_speed_variance
+                np.random.uniform(5, 15),     # large location_jump
+                np.random.uniform(16, 20),    # excessive hours
+                np.random.uniform(5, 10),     # high motion_variance
+                np.random.uniform(10, 20)     # high claim_frequency
+            ])
+        
+        X_train = np.array(normal_data + fraud_data)
+        
+        self.model = IsolationForest(contamination=0.2, random_state=42)
+        self.model.fit(X_train)
+        joblib.dump(self.model, "fraud_model.pkl")
+        print("✅ Trained new fraud detection model")
+    
+    def predict_fraud(self, data):
+        """
+        Enhanced fraud detection with ML + sensor data
+        Returns anomaly score (-1 to 1, lower = more anomalous)
+        """
+        # Extract features
+        gps_speed_variance = data.get('gps_speed_variance', 0)
+        location_jump = data.get('location_jump_km', 0)
+        active_hours = data.get('active_hours', 0)
+        motion_variance = data.get('motion_variance', 0)
+        
+        # Calculate claim frequency from historical data
+        claim_frequency = data.get('claim_frequency', 0)
+        
+        features = [[
+            min(gps_speed_variance, 30),
+            min(location_jump, 15),
+            min(active_hours, 20),
+            min(motion_variance, 10),
+            min(claim_frequency, 20)
+        ]]
+        
+        # ML anomaly score
+        ml_score = self.model.decision_function(features)[0]
+        ml_anomaly = ml_score < -0.2
+        
+        # Sensor-based rules (still useful for specific cases)
+        reasons = []
+        rule_fraud = False
+        
+        if gps_speed_variance > 15:
+            rule_fraud = True
+            reasons.append("Unrealistic GPS speed variance")
+        
+        if location_jump > 5:
+            rule_fraud = True
+            reasons.append("Impossible location jump")
+        
+        if active_hours > 16:
+            rule_fraud = True
+            reasons.append("Excessive working hours")
+        
+        # Combine ML and rules
+        is_fraud = ml_anomaly or rule_fraud
+        
+        # Calculate anomaly score (0-1, higher = more anomalous)
+        anomaly_score = max(0, min(1, (1 - ml_score) / 2))
+        if rule_fraud:
+            anomaly_score = max(anomaly_score, 0.5)
+        
+        return {
+            "is_fraud": is_fraud,
+            "verdict": "Fraudulent" if is_fraud else "Normal",
+            "anomaly_score": round(anomaly_score, 2),
+            "ml_anomaly_score": round(float(ml_score), 2),
+            "reasons": reasons,
+            "confidence": anomaly_score if is_fraud else 1 - anomaly_score
+        }
+
+# Singleton instance
+_fraud_detector = None
+
+def get_fraud_detector():
+    global _fraud_detector
+    if _fraud_detector is None:
+        _fraud_detector = FraudDetector()
+    return _fraud_detector
+
+# Legacy function for backward compatibility
 def predict_fraud(model, data):
-    """
-    Enhanced fraud detection with sensor data
-    """
-    # Extract features
-    daily_earnings = data.get('daily_earnings_inr', 0)
-    weekly_earnings = data.get('weekly_earnings_inr', 0)
-    num_deliveries = data.get('num_deliveries', 0)
-    active_hours = data.get('active_hours', 0)
-    gps_speed_variance = data.get('gps_speed_variance', 0)
-    location_jump = data.get('location_jump_km', 0)
-    rainfall = data.get('rainfall_mm_hr', 0)
-    aqi = data.get('aqi', 0)
-    
-    # New sensor-based features
-    has_motion = data.get('has_motion', True)
-    motion_confidence = data.get('motion_confidence', 50)
-    is_charging = data.get('battery_charging', False)
-    external_temp = data.get('external_temperature_c', 30)
-    
-    # Rule-based fraud detection
-    is_fraud = False
-    reasons = []
-    anomaly_score = 0
-    
-    # Rule 1: Suspicious GPS patterns
-    if gps_speed_variance > 15:
-        is_fraud = True
-        reasons.append("Unrealistic GPS speed variance")
-        anomaly_score += 0.3
-    
-    # Rule 2: Impossible location jumps
-    if location_jump > 5:
-        is_fraud = True
-        reasons.append("Impossible location jump")
-        anomaly_score += 0.3
-    
-    # Rule 3: Working too many hours
-    if active_hours > 16:
-        is_fraud = True
-        reasons.append("Excessive working hours")
-        anomaly_score += 0.2
-    
-    # Rule 4: Unrealistic delivery count
-    if num_deliveries > 50:
-        is_fraud = True
-        reasons.append("Unrealistic delivery count")
-        anomaly_score += 0.2
-    
-    # Rule 5: Abnormal earnings
-    if daily_earnings > 2000:
-        is_fraud = True
-        reasons.append("Abnormally high daily earnings")
-        anomaly_score += 0.2
-    
-    if weekly_earnings > 15000:
-        is_fraud = True
-        reasons.append("Abnormally high weekly earnings")
-        anomaly_score += 0.2
-    
-    # Rule 6: No motion detected (from sensor)
-    if not has_motion and motion_confidence < 30:
-        is_fraud = True
-        reasons.append("No motion detected - possible GPS spoofing")
-        anomaly_score += 0.25
-    
-    # Rule 7: Charging during high temperature
-    if is_charging and not has_motion and external_temp > 38:
-        is_fraud = True
-        reasons.append("Charging indoors during heatwave")
-        anomaly_score += 0.2
-    
-    # Cap anomaly score at 1.0
-    anomaly_score = min(anomaly_score, 1.0)
-    
-    # If no fraud detected, score is 0
-    if not is_fraud:
-        anomaly_score = 0.0
-    
-    return {
-        "is_fraud": is_fraud,
-        "verdict": "Fraudulent" if is_fraud else "Normal",
-        "anomaly_score": anomaly_score,
-        "reasons": reasons,
-        "confidence": 1.0 if is_fraud else 0.0
-    }
-
+    """Legacy function - now uses ML"""
+    detector = get_fraud_detector()
+    return detector.predict_fraud(data)
 
 def detect_sensor_fraud(sensor_data):
-    """
-    Multi-signal fraud detection based on:
-    - Accelerometer patterns (real riding vs stationary spoofing)
-    - Battery thermal correlation (indoor vs outdoor)
-    - Network consistency
-    """
-    fraud_score = 0
-    reasons = []
+    """Multi-signal fraud detection with ML"""
+    detector = get_fraud_detector()
+    return detector.predict_fraud(sensor_data)
+
+if __name__ == "__main__":
+    # Test the fraud detector
+    detector = get_fraud_detector()
     
-    # Layer 6: Accelerometer-based motion detection
-    has_motion = sensor_data.get('has_motion', False)
-    motion_confidence = sensor_data.get('motion_confidence', 0)
-    avg_acceleration = sensor_data.get('avg_acceleration', 0)
+    test_cases = [
+        {"gps_speed_variance": 2, "location_jump_km": 0.5, "active_hours": 8, "motion_variance": 1, "claim_frequency": 2},
+        {"gps_speed_variance": 20, "location_jump_km": 8, "active_hours": 18, "motion_variance": 6, "claim_frequency": 15},
+    ]
     
-    if not has_motion and motion_confidence < 30:
-        fraud_score += 25
-        reasons.append("No motion detected - possible GPS spoofing")
-    elif has_motion and motion_confidence > 70:
-        fraud_score -= 10  # Legitimate rider
-    
-    # Layer 7: Battery thermal correlation
-    battery_level = sensor_data.get('battery_level')
-    is_charging = sensor_data.get('battery_charging', False)
-    external_temp = sensor_data.get('external_temperature_c', 30)
-    
-    # Spoofing detection: If phone is charging and no motion in high heat
-    if is_charging and not has_motion and external_temp > 38:
-        fraud_score += 20
-        reasons.append("Charging indoors during heatwave - potential spoof")
-    
-    # Layer 8: Network consistency
-    network_type = sensor_data.get('network_type', 'unknown')
-    gps_accuracy = sensor_data.get('gps_accuracy', 0)
-    
-    if network_type == 'unknown' and gps_accuracy > 50:
-        fraud_score += 15
-        reasons.append("GPS active but no network - possible mock location")
-    
-    # Layer 9: Motion variance analysis
-    motion_variance = sensor_data.get('motion_variance', 0)
-    if motion_variance > 5:
-        fraud_score += 10
-        reasons.append("Erratic motion pattern - possible GPS drift")
-    
-    # Layer 10: Time-based anomaly detection
-    active_hours = sensor_data.get('active_hours', 0)
-    if active_hours > 16:
-        fraud_score += 10
-        reasons.append("Excessive working hours - possible account sharing")
-    
-    return {
-        "is_fraud": fraud_score > 40,
-        "fraud_score": min(fraud_score, 100),
-        "reasons": reasons,
-        "verdict": "Flagged" if fraud_score > 40 else "Normal"
-    }
+    for test in test_cases:
+        result = detector.predict_fraud(test)
+        print(f"Input: {test}")
+        print(f"Result: {result}\n")
