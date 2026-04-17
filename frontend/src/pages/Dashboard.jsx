@@ -573,7 +573,8 @@ export default function Dashboard() {
               <Shield size={48} style={{ color: 'var(--text-tertiary)', marginBottom: '1rem' }} />
               <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem' }}>No active coverage detected</p>
               <button
-                onClick={() => navigate('/my-coverage')}
+                onClick={() => navigate('/dashboard/coverage')}
+
                 style={{
                   background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                   color: 'white',
@@ -639,7 +640,7 @@ export default function Dashboard() {
           
           {recentPayouts.length > 0 && (
             <button
-              onClick={() => navigate('/payout-history')}
+             onClick={() => navigate('/dashboard/history')}
               style={{
                 width: '100%',
                 marginTop: '1rem',
