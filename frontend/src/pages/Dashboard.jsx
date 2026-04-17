@@ -14,6 +14,7 @@ export default function Dashboard() {
   const [envData, setEnvData] = useState(null);
   const [activePlan, setActivePlan] = useState(null);
   const [recentPayouts, setRecentPayouts] = useState([]);
+  const [totalProtected, setTotalProtected] = useState(0);
   const [loading, setLoading] = useState(true);
   const [detectedLocation, setDetectedLocation] = useState(null);
 
@@ -44,6 +45,29 @@ export default function Dashboard() {
     }
   }, []);
 
+  // Helper to refresh all data
+  const refreshAllData = async () => {
+    try {
+      const [profileData, triggerData, planData, payoutData] = await Promise.all([
+        getWorkerProfile(user?.id),
+        getLiveTriggers(zone),
+        getMyPlan(user?.id),
+        getPayoutHistory(user?.id)
+      ]);
+      setProfile(profileData);
+      setEnvData(triggerData);
+      setActivePlan(planData);
+      setRecentPayouts(payoutData.slice(0, 3));
+      
+      // Calculate total protected from payouts
+      const total = payoutData.reduce((sum, p) => sum + (p.amount || 0), 0);
+      setTotalProtected(total);
+      
+    } catch (error) {
+      console.error('Refresh error:', error);
+    }
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -58,6 +82,18 @@ export default function Dashboard() {
         setEnvData(triggerData);
         setActivePlan(planData);
         setRecentPayouts(payoutData.slice(0, 3));
+        
+        // Calculate total protected from payouts (REAL DATA)
+        const total = payoutData.reduce((sum, p) => sum + (p.amount || 0), 0);
+        setTotalProtected(total);
+        
+        console.log('📊 Dashboard Data:', {
+          profile: profileData,
+          totalProtected: total,
+          activePlan: planData,
+          payoutsCount: payoutData.length
+        });
+        
       } catch (error) {
         console.error('Dashboard fetch error:', error);
         if (showToast) showToast('Error loading dashboard data', 'error');
@@ -73,8 +109,8 @@ export default function Dashboard() {
 
   if (loading) return <LoadingSpinner message="Loading Dashboard..." />;
 
-  // Calculate stats
-  const todayEarnings = profile?.totalEarnings || 12450;
+  // REAL DATA - from API responses
+  const totalEarnings = totalProtected;  // REAL total from payouts table
   const weeklyPremium = activePlan?.premium || 0;
   const coverageAmount = activePlan?.coverage || 0;
   const riskLevel = envData?.risk_level || 'Moderate';
@@ -170,14 +206,14 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Stats Grid */}
+      {/* Stats Grid - NOW WITH REAL DATA */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
         gap: '1rem',
         marginBottom: '2rem',
       }}>
-        {/* Today's Earnings */}
+        {/* Total Protected Earnings - REAL */}
         <div style={{
           background: 'var(--bg-secondary)',
           borderRadius: '1rem',
@@ -185,14 +221,16 @@ export default function Dashboard() {
           border: '1px solid var(--border-light)',
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>Today's Earnings</span>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>Total Protected</span>
             <DollarSign size={18} style={{ color: 'var(--success)' }} />
           </div>
-          <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>₹{todayEarnings.toLocaleString()}</div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--success)', marginTop: '0.5rem' }}>+8% vs yesterday</div>
+          <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>₹{totalEarnings.toLocaleString()}</div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
+            Lifetime earnings protected
+          </div>
         </div>
 
-        {/* Active Coverage */}
+        {/* Active Coverage - REAL */}
         <div style={{
           background: 'var(--bg-secondary)',
           borderRadius: '1rem',
@@ -211,7 +249,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Weekly Premium */}
+        {/* Weekly Premium - REAL */}
         <div style={{
           background: 'var(--bg-secondary)',
           borderRadius: '1rem',
@@ -226,7 +264,7 @@ export default function Dashboard() {
           <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>/week</div>
         </div>
 
-        {/* Risk Level */}
+        {/* Risk Level - REAL */}
         <div style={{
           background: 'var(--bg-secondary)',
           borderRadius: '1rem',
@@ -261,114 +299,6 @@ export default function Dashboard() {
           gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
           gap: '1rem',
         }}>
-
-  {/* DEMO SIMULATION - FOR JUDGES */}
-<div style={{ marginTop: '2rem', marginBottom: '2rem' }}>
-  <div style={{
-    background: 'linear-gradient(135deg, #667eea15 0%, #764ba215 100%)',
-    borderRadius: '1rem',
-    padding: '1.5rem',
-    border: '2px dashed var(--accent-primary)',
-  }}>
-    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
-      <Zap size={24} style={{ color: 'var(--accent-primary)' }} />
-      <h3 style={{ fontWeight: 'bold' }}>🎬 Demo Mode: Instant Payout Simulation</h3>
-      <span style={{
-        fontSize: '0.65rem',
-        padding: '0.2rem 0.5rem',
-        background: 'var(--accent-primary)',
-        borderRadius: '1rem',
-        color: 'white',
-      }}>SHOW JUDGES</span>
-    </div>
-    <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
-      Click any button to simulate a real-world disruption. Payout will be processed in &lt;60 seconds.
-    </p>
-    <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-      <button
-        onClick={async () => {
-          try {
-            const result = await simulateTrigger('HEAVY_RAIN', 55, user?.id);
-            showToast(`🌧️ ${result.message}`, 'success');
-            // Refresh payout history
-            const newPayouts = await getPayoutHistory(user?.id);
-            setRecentPayouts(newPayouts.slice(0, 3));
-          } catch (error) {
-            showToast('Demo error: ' + error.message, 'error');
-          }
-        }}
-        style={{
-          padding: '0.75rem 1.5rem',
-          background: '#3b82f6',
-          border: 'none',
-          borderRadius: '0.5rem',
-          color: 'white',
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.5rem',
-          fontWeight: 600,
-        }}
-      >
-        <CloudRain size={18} /> Simulate Heavy Rain (55mm/hr) → ₹{Math.round(300 + (55-40)*10)}
-      </button>
-      
-      <button
-        onClick={async () => {
-          try {
-            const result = await simulateTrigger('EXTREME_HEAT', 45, user?.id);
-            showToast(`🌡️ ${result.message}`, 'success');
-            const newPayouts = await getPayoutHistory(user?.id);
-            setRecentPayouts(newPayouts.slice(0, 3));
-          } catch (error) {
-            showToast('Demo error: ' + error.message, 'error');
-          }
-        }}
-        style={{
-          padding: '0.75rem 1.5rem',
-          background: '#ef4444',
-          border: 'none',
-          borderRadius: '0.5rem',
-          color: 'white',
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.5rem',
-          fontWeight: 600,
-        }}
-      >
-        <Thermometer size={18} /> Simulate Extreme Heat (45°C) → ₹{Math.round(200 + (45-42)*15)}
-      </button>
-      
-      <button
-        onClick={async () => {
-          try {
-            const result = await simulateTrigger('HIGH_POLLUTION', 400, user?.id);
-            showToast(`🌫️ ${result.message}`, 'success');
-            const newPayouts = await getPayoutHistory(user?.id);
-            setRecentPayouts(newPayouts.slice(0, 3));
-          } catch (error) {
-            showToast('Demo error: ' + error.message, 'error');
-          }
-        }}
-        style={{
-          padding: '0.75rem 1.5rem',
-          background: '#8b5cf6',
-          border: 'none',
-          borderRadius: '0.5rem',
-          color: 'white',
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.5rem',
-          fontWeight: 600,
-        }}
-      >
-        <Wind size={18} /> Simulate High Pollution (AQI 400) → ₹{Math.round(250 + (400-300)*2)}
-      </button>
-    </div>
-  </div>
-</div>
           {/* Rainfall */}
           <div style={{
             background: 'var(--bg-secondary)',
@@ -467,6 +397,110 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* DEMO SIMULATION - FOR JUDGES */}
+      <div style={{ marginTop: '2rem', marginBottom: '2rem' }}>
+        <div style={{
+          background: 'linear-gradient(135deg, #667eea15 0%, #764ba215 100%)',
+          borderRadius: '1rem',
+          padding: '1.5rem',
+          border: '2px dashed var(--accent-primary)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+            <Zap size={24} style={{ color: 'var(--accent-primary)' }} />
+            <h3 style={{ fontWeight: 'bold' }}>🎬 Demo Mode: Instant Payout Simulation</h3>
+            <span style={{
+              fontSize: '0.65rem',
+              padding: '0.2rem 0.5rem',
+              background: 'var(--accent-primary)',
+              borderRadius: '1rem',
+              color: 'white',
+            }}>SHOW JUDGES</span>
+          </div>
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
+            Click any button to simulate a real-world disruption. Payout will be processed in &lt;60 seconds.
+          </p>
+          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+            <button
+              onClick={async () => {
+                try {
+                  const result = await simulateTrigger('HEAVY_RAIN', 55, user?.id);
+                  showToast(`🌧️ ${result.message}`, 'success');
+                  await refreshAllData();
+                } catch (error) {
+                  showToast('Demo error: ' + error.message, 'error');
+                }
+              }}
+              style={{
+                padding: '0.75rem 1.5rem',
+                background: '#3b82f6',
+                border: 'none',
+                borderRadius: '0.5rem',
+                color: 'white',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                fontWeight: 600,
+              }}
+            >
+              <CloudRain size={18} /> Simulate Heavy Rain (55mm/hr) → ₹{Math.round(300 + (55-40)*10)}
+            </button>
+            
+            <button
+              onClick={async () => {
+                try {
+                  const result = await simulateTrigger('EXTREME_HEAT', 45, user?.id);
+                  showToast(`🌡️ ${result.message}`, 'success');
+                  await refreshAllData();
+                } catch (error) {
+                  showToast('Demo error: ' + error.message, 'error');
+                }
+              }}
+              style={{
+                padding: '0.75rem 1.5rem',
+                background: '#ef4444',
+                border: 'none',
+                borderRadius: '0.5rem',
+                color: 'white',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                fontWeight: 600,
+              }}
+            >
+              <Thermometer size={18} /> Simulate Extreme Heat (45°C) → ₹{Math.round(200 + (45-42)*15)}
+            </button>
+            
+            <button
+              onClick={async () => {
+                try {
+                  const result = await simulateTrigger('HIGH_POLLUTION', 400, user?.id);
+                  showToast(`🌫️ ${result.message}`, 'success');
+                  await refreshAllData();
+                } catch (error) {
+                  showToast('Demo error: ' + error.message, 'error');
+                }
+              }}
+              style={{
+                padding: '0.75rem 1.5rem',
+                background: '#8b5cf6',
+                border: 'none',
+                borderRadius: '0.5rem',
+                color: 'white',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                fontWeight: 600,
+              }}
+            >
+              <Wind size={18} /> Simulate High Pollution (AQI 400) → ₹{Math.round(250 + (400-300)*2)}
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* Coverage Status & Recent Payouts */}
       <div style={{
         display: 'grid',
@@ -546,7 +580,7 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Recent Payouts */}
+        {/* Recent Payouts - REAL DATA */}
         <div style={{
           background: 'var(--bg-secondary)',
           borderRadius: '1rem',
@@ -571,7 +605,7 @@ export default function Dashboard() {
                   <div>
                     <div style={{ fontWeight: 500 }}>{payout.reason || 'Payout credited'}</div>
                     <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                      <Calendar size={10} /> {payout.date || new Date(payout.timestamp).toLocaleDateString()}
+                      <Calendar size={10} /> {payout.timestamp ? new Date(payout.timestamp).toLocaleDateString() : payout.date || 'Recent'}
                     </div>
                     {payout.trigger_value && (
                       <div style={{ fontSize: '0.65rem', color: 'var(--text-tertiary)', marginTop: '0.25rem' }}>
@@ -589,7 +623,7 @@ export default function Dashboard() {
             <div style={{ textAlign: 'center', padding: '2rem' }}>
               <DollarSign size={48} style={{ color: 'var(--text-tertiary)', marginBottom: '1rem' }} />
               <p style={{ color: 'var(--text-secondary)' }}>No payouts yet</p>
-              <p style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)' }}>Payouts will appear when triggers are activated</p>
+              <p style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)' }}>Click simulation buttons to test payouts</p>
             </div>
           )}
           

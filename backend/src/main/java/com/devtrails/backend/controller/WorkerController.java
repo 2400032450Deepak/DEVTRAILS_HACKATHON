@@ -13,7 +13,7 @@ import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/workers")
-@CrossOrigin(origins = "http://localhost:5173", allowCredentials = "true")
+@CrossOrigin(origins = {"http://localhost:5173", "https://devtrails-frontend-main.vercel.app"}, allowCredentials = "true")
 public class WorkerController {
 
     private final UserRepository userRepository;
