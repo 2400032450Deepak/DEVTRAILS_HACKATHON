@@ -47,6 +47,13 @@ export default function Dashboard() {
     }
   }, []);
 
+  useEffect(() => {
+  const savedPlan = sessionStorage.getItem('activePlan');
+  if (savedPlan && !activePlan) {
+    setActivePlan(JSON.parse(savedPlan));
+  }
+}, []);
+
   // Helper to refresh all data
   const refreshAllData = async () => {
     try {

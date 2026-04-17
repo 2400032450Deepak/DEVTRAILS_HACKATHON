@@ -54,6 +54,12 @@ export default function MyCoverage() {
       fetchPlans();
     }
   }, [user]);
+  
+  useEffect(() => {
+  if (activePlan) {
+    sessionStorage.setItem('activePlan', JSON.stringify(activePlan));
+  }
+}, [activePlan]);
 
   // Handle plan selection - only if no active plan or upgrading
   const handleSelectPlan = (plan) => {
@@ -149,16 +155,7 @@ export default function MyCoverage() {
     }
   };
 
-  const getRiskAdjustment = (planId) => {
-    const zoneRisk = {
-      'Zone_B_Mumbai': 1.2,
-      'Zone_C_Delhi': 1.3,
-      'Zone_D_Hyderabad': 1.1,
-      'Zone_E_Chennai': 1.15,
-      'Zone_A_Bangalore': 1.0
-    };
-    return zoneRisk[zone] || 1.0;
-  };
+
 
   const getZoneName = () => {
     const zoneNames = {
@@ -269,7 +266,7 @@ export default function MyCoverage() {
         marginBottom: '2rem',
       }}>
         {plans.map((plan, index) => {
-          const adjustedPremium = Math.round(plan.premium * getRiskAdjustment(plan.id));
+          const adjustedPremium = plan.premium;
           const isActive = activePlan?.id === plan.id;
           const isSelected = selectedPlan?.id === plan.id;
           const canUpgrade = activePlan && plan.premium > activePlan.premium;
