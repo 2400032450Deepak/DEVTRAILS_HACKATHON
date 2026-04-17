@@ -7,26 +7,44 @@ export default function Topbar({ onMenuClick }) {
   const { setZone, zone, user } = useAuth();
   const [time, setTime] = useState("");
   const [profile, setProfile] = useState(null);
-  const [notifications, setNotifications] = useState([
-    { id: 1, message: "Heavy rainfall alert in your zone", read: false, time: "2 min ago" },
-    { id: 2, message: "Your payout of ₹350 has been credited", read: false, time: "1 hour ago" },
-    { id: 3, message: "Weekly premium due in 2 days", read: false, time: "5 hours ago" }
-  ]);
+  const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [ws, setWs] = useState(null);
 
-  // Fetch user profile for display
-  useEffect(() => {
-    if (user?.id) {
-      fetch(`https://delivershield-backend.onrender.com/api/workers/${user.id}`)
-        .then(res => res.json())
-        .then(data => setProfile(data))
-        .catch(err => console.error('Failed to fetch profile:', err));
+  // ============================================
+  // REAL-TIME NOTIFICATION FUNCTIONS
+  // ============================================
+
+  // Add a real notification
+  const addNotification = (message, type = 'info', eventType = 'general') => {
+    const newNotification = {
+      id: Date.now(),
+      message,
+      type, // 'success', 'error', 'warning', 'info'
+      eventType, // 'location', 'payout', 'weather', 'demo'
+      read: false,
+      time: new Date().toLocaleTimeString('en-IN', { hour12: false })
+    };
+    
+    setNotifications(prev => [newNotification, ...prev].slice(0, 50));
+    
+    // Also show toast if available
+    if (window.dispatchEvent) {
+      window.dispatchEvent(new CustomEvent('showToast', { 
+        detail: { message, type: type === 'success' ? 'success' : type === 'warning' ? 'error' : 'info' }
+      }));
     }
-  }, [user]);
+    
+    return newNotification.id;
+  };
 
-  // Auto-detect location (runs in background)
+  // ============================================
+  // LOCATION DETECTION NOTIFICATION
+  // ============================================
   const detectLocation = async () => {
     try {
+      addNotification('📍 Detecting your location...', 'info', 'location');
+      
       const getCoordinates = () => {
         return new Promise((resolve, reject) => {
           if (!navigator.geolocation) {
@@ -49,8 +67,7 @@ export default function Topbar({ onMenuClick }) {
       );
       const data = await response.json();
 
-      const city =
-        data.address?.city ||
+      const city = data.address?.city ||
         data.address?.town ||
         data.address?.village ||
         data.address?.state_district ||
@@ -60,69 +77,218 @@ export default function Topbar({ onMenuClick }) {
       
       console.log(`📍 Detected city: ${city}, State: ${state}`);
 
-      let detectedZone = "Zone_D_Hyderabad"; // Default to Hyderabad for AP region
+      let detectedZone = "Zone_D_Hyderabad";
+      let locationName = city || state || "your area";
 
-      // ✅ Extended zone detection including Guntur/Andhra Pradesh
+      // Zone detection logic
       const cityLower = city.toLowerCase();
       const stateLower = state.toLowerCase();
       
-      // Bangalore / Karnataka
       if (cityLower.includes("bangalore") || cityLower.includes("bengaluru")) {
         detectedZone = "Zone_A_Bangalore";
+        locationName = "Bangalore";
       } 
-      // Mumbai / Maharashtra
       else if (cityLower.includes("mumbai")) {
         detectedZone = "Zone_B_Mumbai";
+        locationName = "Mumbai";
       } 
-      // Delhi
       else if (cityLower.includes("delhi") || cityLower.includes("new delhi")) {
         detectedZone = "Zone_C_Delhi";
+        locationName = "Delhi";
       } 
-      // Hyderabad / Telangana / Andhra Pradesh (Guntur, Vijayawada, etc.)
       else if (cityLower.includes("hyderabad") || 
                cityLower.includes("secunderabad") ||
                cityLower.includes("guntur") ||
                cityLower.includes("vijayawada") ||
-               cityLower.includes("amaravati") ||
-               cityLower.includes("tenali") ||
-               cityLower.includes("ongole") ||
-               cityLower.includes("nellore") ||
-               cityLower.includes("kurnool") ||
-               cityLower.includes("tirupati") ||
                stateLower.includes("andhra pradesh") ||
                stateLower.includes("telangana")) {
         detectedZone = "Zone_D_Hyderabad";
+        locationName = city || "Hyderabad Region";
       } 
-      // Chennai / Tamil Nadu
       else if (cityLower.includes("chennai")) {
         detectedZone = "Zone_E_Chennai";
+        locationName = "Chennai";
       }
-      // Check coordinates for Guntur/AP region as fallback
       else if (coords.lat >= 14.0 && coords.lat <= 18.0 && coords.lon >= 77.0 && coords.lon <= 82.0) {
         detectedZone = "Zone_D_Hyderabad";
-        console.log(`📍 Coordinates fallback: detected AP region -> Zone_D_Hyderabad`);
+        locationName = "Andhra Pradesh/Telangana Region";
       }
 
-      console.log(`📍 Setting zone to: ${detectedZone} (based on: ${city || state})`);
+      console.log(`📍 Setting zone to: ${detectedZone} (based on: ${locationName})`);
       setZone(detectedZone);
       localStorage.setItem('userZone', detectedZone);
       
+      // SUCCESS NOTIFICATION
+      addNotification(
+        `📍 Location detected: ${locationName} | Zone: ${detectedZone.replace('Zone_', '').replace('_', ' ')}`,
+        'success',
+        'location'
+      );
+      
     } catch (error) {
       console.error("Location detection failed:", error);
-      // Try to get saved zone from localStorage
+      addNotification(`⚠️ Location detection failed: ${error.message}`, 'error', 'location');
+      
       const savedZone = localStorage.getItem('userZone');
       if (savedZone) {
         setZone(savedZone);
+        addNotification(`📍 Using saved zone: ${savedZone.replace('Zone_', '').replace('_', ' ')}`, 'info', 'location');
       }
     }
   };
 
-  // Run location detection on mount
+  // ============================================
+  // PAYOUT NOTIFICATION (called from Dashboard)
+  // ============================================
+  const showPayoutNotification = (amount, triggerType) => {
+    const triggerNames = {
+      'HEAVY_RAIN': 'Heavy Rainfall',
+      'EXTREME_HEAT': 'Extreme Heat',
+      'HIGH_POLLUTION': 'High Pollution',
+      'TRAFFIC_CONGESTION': 'Traffic Congestion',
+      'PLATFORM_OUTAGE': 'Platform Outage'
+    };
+    
+    const triggerName = triggerNames[triggerType] || triggerType;
+    addNotification(
+      `💰 ₹${amount} payout credited for ${triggerName}!`,
+      'success',
+      'payout'
+    );
+  };
+
+  // ============================================
+  // WEATHER ALERT NOTIFICATION
+  // ============================================
+  const showWeatherAlert = (condition, value) => {
+    const alerts = {
+      'HEAVY_RAIN': `🌧️ Heavy Rainfall Alert: ${value}mm/hr - Coverage Active`,
+      'EXTREME_HEAT': `🌡️ Extreme Heat Alert: ${value}°C - Coverage Active`,
+      'HIGH_POLLUTION': `🌫️ High Pollution Alert: AQI ${value} - Coverage Active`
+    };
+    
+    addNotification(
+      alerts[condition] || `⚠️ Weather Alert: ${condition} detected`,
+      'warning',
+      'weather'
+    );
+  };
+
+  // ============================================
+  // DEMO SIMULATION NOTIFICATION
+  // ============================================
+  const showDemoNotification = (triggerType, amount) => {
+    const demoMessages = {
+      'HEAVY_RAIN': `🎬 DEMO: Heavy Rain simulation triggered! ₹${amount} payout processed`,
+      'EXTREME_HEAT': `🎬 DEMO: Extreme Heat simulation triggered! ₹${amount} payout processed`,
+      'HIGH_POLLUTION': `🎬 DEMO: High Pollution simulation triggered! ₹${amount} payout processed`
+    };
+    
+    addNotification(
+      demoMessages[triggerType] || `🎬 DEMO: ${triggerType} simulation - ₹${amount} payout`,
+      'info',
+      'demo'
+    );
+  };
+
+  // ============================================
+  // REAL-TIME WEATHER MONITORING
+  // ============================================
+  const startWeatherMonitoring = async () => {
+    const checkWeather = async () => {
+      try {
+        const response = await fetch('https://devtrails-ai.onrender.com/evaluate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ zone: zone || 'Zone_D_Hyderabad' })
+        });
+        const data = await response.json();
+        const conditions = data.live_conditions;
+        
+        // Check for triggers
+        if (conditions.rainfall_mm_hr > 40) {
+          showWeatherAlert('HEAVY_RAIN', conditions.rainfall_mm_hr);
+        }
+        if (conditions.temperature_c > 42) {
+          showWeatherAlert('EXTREME_HEAT', conditions.temperature_c);
+        }
+        if (conditions.aqi > 300) {
+          showWeatherAlert('HIGH_POLLUTION', conditions.aqi);
+        }
+      } catch (error) {
+        console.error('Weather check failed:', error);
+      }
+    };
+    
+    // Check every 5 minutes
+    const interval = setInterval(checkWeather, 300000);
+    return () => clearInterval(interval);
+  };
+
+  // ============================================
+  // MARK NOTIFICATIONS
+  // ============================================
+  const markAsRead = (id) => {
+    setNotifications(prev =>
+      prev.map(n => (n.id === id ? { ...n, read: true } : n))
+    );
+  };
+
+  const markAllAsRead = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+  };
+
+  // ============================================
+  // INITIALIZATION
+  // ============================================
   useEffect(() => {
+    // Detect location on mount
     detectLocation();
+    
+    // Start weather monitoring
+    let weatherCleanup;
+    startWeatherMonitoring().then(cleanup => { weatherCleanup = cleanup; });
+    
+    // Listen for custom events from Dashboard
+    const handlePayoutEvent = (event) => {
+      showPayoutNotification(event.detail.amount, event.detail.triggerType);
+    };
+    
+    const handleDemoEvent = (event) => {
+      showDemoNotification(event.detail.triggerType, event.detail.amount);
+    };
+    
+    const handleWeatherEvent = (event) => {
+      showWeatherAlert(event.detail.condition, event.detail.value);
+    };
+    
+    window.addEventListener('payoutTriggered', handlePayoutEvent);
+    window.addEventListener('demoTriggered', handleDemoEvent);
+    window.addEventListener('weatherAlert', handleWeatherEvent);
+    
+    return () => {
+      if (weatherCleanup) weatherCleanup();
+      window.removeEventListener('payoutTriggered', handlePayoutEvent);
+      window.removeEventListener('demoTriggered', handleDemoEvent);
+      window.removeEventListener('weatherAlert', handleWeatherEvent);
+    };
   }, []);
 
+  // ============================================
+  // Fetch user profile
+  // ============================================
+  useEffect(() => {
+    if (user?.id) {
+      fetch(`https://delivershield-backend.onrender.com/api/workers/${user.id}`)
+        .then(res => res.json())
+        .then(data => setProfile(data))
+        .catch(err => console.error('Failed to fetch profile:', err));
+    }
+  }, [user]);
+
+  // ============================================
   // Time updater
+  // ============================================
   useEffect(() => {
     const updateTime = () => {
       setTime(new Date().toLocaleTimeString('en-IN', { hour12: false }));
@@ -134,20 +300,8 @@ export default function Topbar({ onMenuClick }) {
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  const markAsRead = (id) => {
-    setNotifications(prev =>
-      prev.map(n => (n.id === id ? { ...n, read: true } : n))
-    );
-  };
-
-  const markAllAsRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-  };
-
-  // Format phone number for display
   const formatPhoneNumber = (phone) => {
     if (!phone) return 'Not available';
-    // Remove any non-digit characters
     const digits = phone.replace(/\D/g, '');
     if (digits.length === 10) {
       return `+91 ${digits.slice(0, 5)} ${digits.slice(5)}`;
@@ -158,9 +312,26 @@ export default function Topbar({ onMenuClick }) {
     return phone;
   };
 
-  // Get readable zone name
   const getReadableZoneName = () => {
     return ZONE_DISPLAY_NAMES[zone] || zone?.replace(/_/g, ' ') || 'Unknown';
+  };
+
+  const getNotificationIcon = (type) => {
+    switch(type) {
+      case 'success': return '💰';
+      case 'warning': return '⚠️';
+      case 'error': return '❌';
+      default: return '📍';
+    }
+  };
+
+  const getNotificationColor = (type) => {
+    switch(type) {
+      case 'success': return '#10b981';
+      case 'warning': return '#f59e0b';
+      case 'error': return '#ef4444';
+      default: return '#667eea';
+    }
   };
 
   return (
@@ -212,7 +383,7 @@ export default function Topbar({ onMenuClick }) {
       {/* RIGHT */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
         
-        {/* ✅ Zone Indicator */}
+        {/* Zone Indicator */}
         <div style={{
           display: 'flex',
           alignItems: 'center',
@@ -228,7 +399,7 @@ export default function Topbar({ onMenuClick }) {
           </span>
         </div>
 
-        {/* ✅ Logged in as indicator */}
+        {/* Logged in as indicator */}
         <div style={{
           display: 'flex',
           alignItems: 'center',
@@ -306,7 +477,8 @@ export default function Topbar({ onMenuClick }) {
                 position: 'absolute',
                 top: 'calc(100% + 8px)',
                 right: 0,
-                width: '320px',
+                width: '360px',
+                maxWidth: '90vw',
                 background: 'var(--bg-secondary)',
                 border: '1px solid var(--border-light)',
                 borderRadius: '0.75rem',
@@ -319,8 +491,14 @@ export default function Topbar({ onMenuClick }) {
                   borderBottom: '1px solid var(--border-light)',
                   display: 'flex',
                   justifyContent: 'space-between',
+                  alignItems: 'center',
                 }}>
-                  <span style={{ fontWeight: 'bold' }}>Notifications</span>
+                  <div>
+                    <span style={{ fontWeight: 'bold' }}>Notifications</span>
+                    <span style={{ fontSize: '0.6rem', color: 'var(--text-tertiary)', marginLeft: '0.5rem' }}>
+                      {unreadCount} unread
+                    </span>
+                  </div>
                   {unreadCount > 0 && (
                     <button onClick={markAllAsRead} style={{
                       background: 'none',
@@ -335,23 +513,37 @@ export default function Topbar({ onMenuClick }) {
                 </div>
 
                 <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-                  {notifications.map(notif => (
-                    <div
-                      key={notif.id}
-                      onClick={() => markAsRead(notif.id)}
-                      style={{
-                        padding: '0.75rem 1rem',
-                        borderBottom: '1px solid var(--border-light)',
-                        background: notif.read ? 'transparent' : 'var(--accent-glow)',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      <div>{notif.message}</div>
-                      <div style={{ fontSize: '0.6rem', color: 'var(--text-tertiary)' }}>
-                        {notif.time}
-                      </div>
+                  {notifications.length === 0 ? (
+                    <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-tertiary)' }}>
+                      <Bell size={32} style={{ marginBottom: '0.5rem', opacity: 0.5 }} />
+                      <div style={{ fontSize: '0.8rem' }}>No notifications yet</div>
+                      <div style={{ fontSize: '0.7rem' }}>Check back for updates</div>
                     </div>
-                  ))}
+                  ) : (
+                    notifications.map(notif => (
+                      <div
+                        key={notif.id}
+                        onClick={() => markAsRead(notif.id)}
+                        style={{
+                          padding: '0.75rem 1rem',
+                          borderBottom: '1px solid var(--border-light)',
+                          background: notif.read ? 'transparent' : `${getNotificationColor(notif.type)}10`,
+                          cursor: 'pointer',
+                          transition: 'background 0.2s',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                          <span style={{ fontSize: '1rem' }}>{getNotificationIcon(notif.type)}</span>
+                          <span style={{ fontSize: '0.8rem', fontWeight: notif.read ? 'normal' : 'bold' }}>
+                            {notif.message}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '0.6rem', color: 'var(--text-tertiary)', marginLeft: '1.5rem' }}>
+                          {notif.time}
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             </>
