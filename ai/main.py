@@ -1,6 +1,19 @@
-﻿@app.route('/calculate-premium', methods=['POST'])
+﻿from flask import Flask, request, jsonify
+from flask_cors import CORS
+import requests
+from datetime import datetime
+import os
+
+app = Flask(__name__)
+CORS(app)
+
+# ... (keep all your existing functions: get_weather_weatherapi, get_aqi_fallback, etc.)
+
+# ============================================
+# NEW ENDPOINT – MUST COME AFTER app = Flask(__name__)
+# ============================================
+@app.route('/calculate-premium', methods=['POST'])
 def calculate_premium_dynamic():
-    """Calculate premium using ML - NO DATABASE INVOLVED"""
     try:
         data = request.json
         zone = data.get('zone', 'unknown')
@@ -8,84 +21,43 @@ def calculate_premium_dynamic():
         lon = data.get('lon')
         coverage = data.get('coverage', 1200)
         weekly_earnings = data.get('weekly_earnings_inr', 5000)
-        
-        # Get REAL weather for this location
-        if lat and lon:
-            weather = get_weather_for_coordinates(lat, lon)
-            aqi = get_aqi_for_coordinates(lat, lon)
-        else:
-            # Use zone coordinates as fallback
-            coords = ZONE_COORDS.get(zone, (17.3850, 78.4867))
-            weather = get_weather_weatherapi(coords[0], coords[1])
-            aqi = weather.get('aqi', 150) if weather else 150
-        
-        # Calculate risk score from actual conditions
-        risk_score = calculate_risk_score_dynamic(weather, aqi)
-        
-        # Calculate premium using ML formula
-        base_premium = 20
-        
-        # Weather adjustments
-        if weather and weather.get('rainfall', 0) > 40:
-            base_premium += 10
-        elif weather and weather.get('rainfall', 0) > 20:
-            base_premium += 5
-            
-        if weather and weather.get('temp', 30) > 42:
-            base_premium += 8
-        elif weather and weather.get('temp', 30) > 38:
-            base_premium += 4
-            
-        if aqi > 300:
-            base_premium += 12
-        elif aqi > 200:
-            base_premium += 6
-        elif aqi > 100:
-            base_premium += 3
-            
-        # Coverage adjustment (higher coverage = higher premium)
-        coverage_factor = coverage / 700
-        base_premium = base_premium * coverage_factor
-        
-        # Risk score adjustment (0-100 scale)
-        base_premium += risk_score / 10
-        
-        # Clamp to reasonable range
-        premium = round(max(20, min(60, base_premium)), 2)
-        
-        return jsonify({
-            "premium": premium,
-            "risk_score": risk_score,
-            "temperature": weather.get('temp') if weather else 30,
-            "rainfall": weather.get('rainfall') if weather else 0,
-            "aqi": aqi,
-            "message": f"Premium calculated dynamically based on real-time conditions"
-        })
+
+        # Your logic here (weather, AQI, risk score, premium calculation)
+        # ...
+
+        return jsonify({"premium": 27.5, "message": "Dynamic premium calculated"})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-def calculate_risk_score_dynamic(weather, aqi):
-    """Calculate risk score from real conditions (0-100)"""
-    score = 0
-    
-    if weather:
-        if weather.get('rainfall', 0) > 40:
-            score += 30
-        elif weather.get('rainfall', 0) > 25:
-            score += 20
-        elif weather.get('rainfall', 0) > 10:
-            score += 10
-            
-        if weather.get('temp', 30) > 42:
-            score += 25
-        elif weather.get('temp', 30) > 38:
-            score += 15
-    
-    if aqi > 300:
-        score += 30
-    elif aqi > 200:
-        score += 20
-    elif aqi > 100:
-        score += 10
-        
-    return min(score, 100)
+# ============================================
+# YOUR ORIGINAL /evaluate ENDPOINT (keep it)
+# ============================================
+@app.route('/evaluate', methods=['POST', 'GET'])
+def evaluate():
+    # ... your existing code ...
+    pass
+
+# ============================================
+# HEALTH CHECK (keep it)
+# ============================================
+@app.route('/health', methods=['GET'])
+def health():
+    return jsonify({"status": "healthy"})
+
+# ============================================
+# ROOT ENDPOINT (keep it)
+# ============================================
+@app.route('/', methods=['GET'])
+def root():
+    return jsonify({"message": "DeliverShield AI Service is running"})
+
+# ============================================
+# START THE SERVER (MUST BE LAST)
+# ============================================
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    print("=" * 50)
+    print("🚀 DeliverShield AI Service Starting...")
+    print("=" * 50)
+    print(f"📍 Server: http://0.0.0.0:{port}")
+    app.run(host='0.0.0.0', port=port, debug=False)
