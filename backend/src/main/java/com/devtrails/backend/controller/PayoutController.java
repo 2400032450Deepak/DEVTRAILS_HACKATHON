@@ -33,7 +33,23 @@ public class PayoutController {
     }
 
     // ============================================
-    // ADD THIS ENDPOINT - For Demo Simulation
+    // GET TOTAL PROTECTED EARNINGS (REAL DATA)
+    // ============================================
+    @GetMapping("/payouts/total/{userId}")
+    public ResponseEntity<Map<String, Object>> getTotalProtected(@PathVariable Long userId) {
+        List<Payout> userPayouts = payoutRepository.findByUserId(userId);
+        double total = userPayouts.stream().mapToDouble(Payout::getAmount).sum();
+        
+        Map<String, Object> response = new HashMap<>();
+        response.put("total_protected", total);
+        response.put("currency", "INR");
+        response.put("user_id", userId);
+        response.put("payout_count", userPayouts.size());
+        return ResponseEntity.ok(response);
+    }
+
+    // ============================================
+    // SIMULATE TRIGGER (For Demo)
     // ============================================
     @PostMapping("/payout/simulate")
     public ResponseEntity<Map<String, Object>> simulateTrigger(@RequestBody Map<String, String> request) {
@@ -43,7 +59,6 @@ public class PayoutController {
         
         Map<String, Object> response = new HashMap<>();
         
-        // Calculate payout based on trigger type
         double payoutAmount = 0;
         String reason = "";
         
@@ -65,11 +80,9 @@ public class PayoutController {
                 reason = "Trigger activated";
         }
         
-        // Cap at reasonable amount
         payoutAmount = Math.min(payoutAmount, 1000);
         payoutAmount = Math.round(payoutAmount);
         
-        // Create and save payout record
         Payout payout = new Payout();
         payout.setUserId(userId);
         payout.setAmount((int) payoutAmount);
@@ -87,21 +100,6 @@ public class PayoutController {
         
         System.out.println("💰 Demo payout: ₹" + payoutAmount + " to user " + userId + " for " + reason);
         
-        return ResponseEntity.ok(response);
-    }
-
-    // ============================================
-    // ADD THIS - Get total protected earnings
-    // ============================================
-    @GetMapping("/payouts/total/{userId}")
-    public ResponseEntity<Map<String, Object>> getTotalProtected(@PathVariable Long userId) {
-        List<Payout> userPayouts = payoutRepository.findByUserId(userId);
-        double total = userPayouts.stream().mapToDouble(Payout::getAmount).sum();
-        
-        Map<String, Object> response = new HashMap<>();
-        response.put("total_protected", total);
-        response.put("currency", "INR");
-        response.put("user_id", userId);
         return ResponseEntity.ok(response);
     }
 }

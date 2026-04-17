@@ -1,12 +1,11 @@
-from flask import Flask, request, jsonify
+﻿from flask import Flask, request, jsonify
 from flask_cors import CORS
 import requests
 from datetime import datetime
-import json
 import os
 
 app = Flask(__name__)
-CORS(app)
+CORS(app)  # Allow all origins
 
 # Store last weather data - reduced cache time
 last_weather = {'rainfall': 0, 'temp': 30, 'humidity': 65}
@@ -16,17 +15,16 @@ def get_weather():
     global last_weather, last_fetch_time
     now = datetime.now().timestamp()
     
-    # Cache for ONLY 60 seconds (not 5 minutes)
+    # Cache for ONLY 60 seconds
     if now - last_fetch_time < 60:
         print(f"📦 Using cached weather (age: {int(now - last_fetch_time)}s)")
         return last_weather
     
     try:
-        # Use your ACTUAL location - Vaddeswaram, Guntur, Andhra Pradesh
-        # Coordinates: 16.4480°N, 80.6172°E
+        # Vaddeswaram, Guntur, Andhra Pradesh coordinates
         url = 'https://api.open-meteo.com/v1/forecast?latitude=16.4480&longitude=80.6172&current=temperature_2m,relative_humidity_2m,rain&timezone=Asia/Kolkata'
         
-        print(f"🌤️ Fetching fresh weather for Vaddeswaram, Guntur...")
+        print(f"🌤️ Fetching fresh weather...")
         response = requests.get(url, timeout=10)
         data = response.json()
         current = data.get('current', {})
@@ -37,28 +35,13 @@ def get_weather():
             'humidity': current.get('relative_humidity_2m', 65)
         }
         last_fetch_time = now
-        print(f"✅ Weather fetched: {last_weather['temp']}°C, {last_weather['rainfall']}mm rain, {last_weather['humidity']}% humidity")
+        print(f"✅ Weather fetched: {last_weather['temp']}°C")
     except Exception as e:
-        print(f"⚠️ Weather API error: {e}, using cached data")
+        print(f"⚠️ Weather API error: {e}")
     
     return last_weather
 
 def get_aqi(zone):
-    """Fetch real AQI data for the location"""
-    try:
-        # For Vaddeswaram/Guntur area, use Guntur or Vijayawada
-        url = "https://api.waqi.info/feed/guntur/?token=6fb5cda18acaa3f9e6f8e8a18e7d8d0d88fb6944"
-        response = requests.get(url, timeout=5)
-        data = response.json()
-        
-        if data.get('status') == 'ok':
-            aqi = data.get('data', {}).get('aqi', 150)
-            print(f"✅ Real AQI fetched: {aqi}")
-            return aqi
-    except Exception as e:
-        print(f"⚠️ AQI API error: {e}")
-    
-    # Fallback based on zone if API fails
     aqi_map = {
         'Zone_A_Bangalore': 120,
         'Zone_B_Mumbai': 180,
@@ -66,9 +49,7 @@ def get_aqi(zone):
         'Zone_D_Hyderabad': 140,
         'Zone_E_Chennai': 130
     }
-    fallback_aqi = aqi_map.get(zone, 150)
-    print(f"📊 Using fallback AQI: {fallback_aqi}")
-    return fallback_aqi
+    return aqi_map.get(zone, 150)
 
 def calculate_risk(rainfall, temp, aqi):
     score = 0
@@ -116,24 +97,25 @@ def detect_fraud(data):
         return "Unusual", 0.4
     return "Normal", 0.0
 
-@app.route('/evaluate', methods=['POST'])
+# ============= CRITICAL: Ensure this route exists =============
+@app.route('/evaluate', methods=['POST', 'GET'])
 def evaluate():
+    # Handle GET request for testing
+    if request.method == 'GET':
+        return jsonify({"status": "healthy", "message": "AI service is running. Send POST requests to /evaluate"})
+    
     try:
         data = request.json
-        zone = data.get('zone', 'Zone_D_Hyderabad')  # Default to Hyderabad zone for AP
+        zone = data.get('zone', 'Zone_D_Hyderabad')
         
-        print(f"📥 Received request for zone: {zone}")
+        print(f"📥 Received POST request for zone: {zone}")
         
-        # Get live data
         weather = get_weather()
         aqi = get_aqi(zone)
         
         rainfall = weather['rainfall']
         temp = weather['temp']
         
-        print(f"📊 Live conditions: Temp={temp}°C, Rain={rainfall}mm, AQI={aqi}")
-        
-        # Calculate everything
         risk_level, risk_score = calculate_risk(rainfall, temp, aqi)
         premium = calculate_premium(risk_level)
         triggered, payout_amount, reason = check_triggers(rainfall, temp, aqi)
@@ -160,7 +142,7 @@ def evaluate():
             }
         }
         
-        print(f"✅ Response: Risk={risk_level}, Premium=₹{premium}, Temp={temp}°C")
+        print(f"✅ Response: Risk={risk_level}, Temp={temp}°C")
         return jsonify(response)
         
     except Exception as e:
@@ -189,23 +171,23 @@ def health():
         "timestamp": datetime.now().isoformat()
     })
 
-@app.route('/process-background', methods=['POST'])
-def process_background():
-    print(f"🔄 Background processing: {request.json}")
-    return jsonify({"status": "processing", "message": "Background task started"})
+@app.route('/', methods=['GET'])
+def root():
+    return jsonify({
+        "message": "DeliverShield AI Service is running",
+        "endpoints": {
+            "POST /evaluate": "Send weather data for risk assessment",
+            "GET /health": "Check service health"
+        }
+    })
 
 if __name__ == "__main__":
-    # Get port from Render's environment variable, default to 5000 for local development
     port = int(os.environ.get("PORT", 5000))
-    
     print("=" * 50)
     print("🚀 DeliverShield AI Service Starting...")
     print("=" * 50)
     print(f"📍 Server: http://0.0.0.0:{port}")
     print(f"❤️  Health: http://0.0.0.0:{port}/health")
     print(f"🎯 Evaluate: POST http://0.0.0.0:{port}/evaluate")
-    print("📍 Location: Vaddeswaram, Guntur, AP (16.4480°N, 80.6172°E)")
     print("=" * 50)
-    
-    # Bind to 0.0.0.0 to accept all incoming connections
     app.run(host='0.0.0.0', port=port, debug=False)
