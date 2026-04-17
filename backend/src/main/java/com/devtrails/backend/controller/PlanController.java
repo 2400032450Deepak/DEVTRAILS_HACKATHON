@@ -1,8 +1,10 @@
 package com.devtrails.backend.controller;
 
+import com.devtrails.backend.model.Plan;
 import com.devtrails.backend.model.User;
+import com.devtrails.backend.repository.PlanRepository;
 import com.devtrails.backend.repository.UserRepository;
-import com.devtrails.backend.service.AIService;
+import com.devtrails.backend.service.PlanService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -15,44 +17,26 @@ import java.util.*;
 public class PlanController {
 
     @Autowired
-    private AIService aiService;
+    private PlanService planService;
+    
+    @Autowired
+    private PlanRepository planRepository;
     
     @Autowired
     private UserRepository userRepository;
 
-    // Zone multipliers - SINGLE SOURCE OF TRUTH
+    // Zone multipliers based on cost of living + risk
     private static final Map<String, Double> ZONE_MULTIPLIERS = new HashMap<>();
     static {
         ZONE_MULTIPLIERS.put("Zone_A_Bangalore", 1.0);
-        ZONE_MULTIPLIERS.put("Zone_B_Mumbai", 1.2);
-        ZONE_MULTIPLIERS.put("Zone_C_Delhi", 1.3);
+        ZONE_MULTIPLIERS.put("Zone_B_Mumbai", 1.3);
+        ZONE_MULTIPLIERS.put("Zone_C_Delhi", 1.25);
         ZONE_MULTIPLIERS.put("Zone_D_Hyderabad", 1.1);
         ZONE_MULTIPLIERS.put("Zone_E_Chennai", 1.15);
     }
 
-    // Base premiums (without zone adjustment)
-    private static final Map<Integer, Double> BASE_PREMIUMS = new HashMap<>();
-    static {
-        BASE_PREMIUMS.put(1, 22.5);  // Tier 1 base
-        BASE_PREMIUMS.put(2, 18.0);  // Tier 2 base
-        BASE_PREMIUMS.put(3, 15.0);  // Tier 3 base
-    }
-
-    // Coverage amounts
-    private static final Map<Integer, Integer> COVERAGES = new HashMap<>();
-    static {
-        COVERAGES.put(1, 2000);
-        COVERAGES.put(2, 1200);
-        COVERAGES.put(3, 700);
-    }
-
-    // Plan names
-    private static final Map<Integer, String> PLAN_NAMES = new HashMap<>();
-    static {
-        PLAN_NAMES.put(1, "Tier 1 - Premium");
-        PLAN_NAMES.put(2, "Tier 2 - Standard");
-        PLAN_NAMES.put(3, "Tier 3 - Basic");
-    }
+    // Base rate per ₹1000 coverage
+    private static final double BASE_RATE_PER_1000 = 12.5;
 
     @GetMapping("/plans")
     public ResponseEntity<List<Map<String, Object>>> getPlans(@RequestParam(required = false) Long userId) {
@@ -66,25 +50,28 @@ public class PlanController {
         }
         
         double multiplier = ZONE_MULTIPLIERS.getOrDefault(zone, 1.0);
-        List<Map<String, Object>> plans = new ArrayList<>();
+        List<Plan> allPlans = planRepository.findAll();
+        List<Map<String, Object>> dynamicPlans = new ArrayList<>();
         
-        for (int tierId : Arrays.asList(1, 2, 3)) {
-            double basePremium = BASE_PREMIUMS.get(tierId);
-            double finalPremium = Math.round(basePremium * multiplier * 100.0) / 100.0;
+        for (Plan plan : allPlans) {
+            // DYNAMIC PREMIUM CALCULATION - NOT FROM DATABASE!
+            double calculatedPremium = (plan.getCoverage() / 1000.0) * BASE_RATE_PER_1000 * multiplier;
+            calculatedPremium = Math.round(calculatedPremium * 100.0) / 100.0;
             
-            Map<String, Object> plan = new HashMap<>();
-            plan.put("id", tierId);
-            plan.put("name", PLAN_NAMES.get(tierId));
-            plan.put("coverage", COVERAGES.get(tierId));
-            plan.put("premium", finalPremium);
-            plan.put("basePremium", basePremium);
-            plan.put("zone", zone);
-            plan.put("zoneMultiplier", multiplier);
+            Map<String, Object> planResponse = new HashMap<>();
+            planResponse.put("id", plan.getId());
+            planResponse.put("name", plan.getName());
+            planResponse.put("coverage", plan.getCoverage());
+            planResponse.put("premium", calculatedPremium);
+            planResponse.put("zone", zone);
+            planResponse.put("zoneMultiplier", multiplier);
             
-            plans.add(plan);
+            dynamicPlans.add(planResponse);
+            
+            System.out.println("📊 " + plan.getName() + " in " + zone + ": ₹" + calculatedPremium + "/week");
         }
         
-        return ResponseEntity.ok(plans);
+        return ResponseEntity.ok(dynamicPlans);
     }
 
     @GetMapping("/plans/active/{userId}")
@@ -98,37 +85,36 @@ public class PlanController {
         String zone = user.getZone() != null ? user.getZone() : "Zone_D_Hyderabad";
         double multiplier = ZONE_MULTIPLIERS.getOrDefault(zone, 1.0);
         
-        // Get user's active plan ID from user_plans table
-        Long activePlanId = getActivePlanIdFromUserPlans(userId);
-        if (activePlanId == null) {
+        // Get user's active plan from user_plans table
+        com.devtrails.backend.model.UserPlan userPlan = planService.getUserPlan(userId);
+        if (userPlan == null || !userPlan.isActive()) {
             return ResponseEntity.noContent().build();
         }
         
-        double basePremium = BASE_PREMIUMS.getOrDefault(activePlanId.intValue(), 22.5);
-        double finalPremium = Math.round(basePremium * multiplier * 100.0) / 100.0;
+        Plan plan = userPlan.getPlan();
+        if (plan == null) {
+            return ResponseEntity.notFound().build();
+        }
+        
+        // DYNAMIC PREMIUM CALCULATION
+        double calculatedPremium = (plan.getCoverage() / 1000.0) * BASE_RATE_PER_1000 * multiplier;
+        calculatedPremium = Math.round(calculatedPremium * 100.0) / 100.0;
         
         Map<String, Object> response = new HashMap<>();
-        response.put("id", activePlanId);
-        response.put("name", PLAN_NAMES.get(activePlanId.intValue()));
-        response.put("coverage", COVERAGES.get(activePlanId.intValue()));
-        response.put("premium", finalPremium);
-        response.put("basePremium", basePremium);
+        response.put("id", plan.getId());
+        response.put("name", plan.getName());
+        response.put("coverage", plan.getCoverage());
+        response.put("premium", calculatedPremium);
         response.put("zone", zone);
         response.put("zoneMultiplier", multiplier);
         response.put("isActive", true);
+        response.put("startDate", userPlan.getStartDate());
+        response.put("endDate", userPlan.getEndDate());
         
-        System.out.println("✅ Active plan: " + PLAN_NAMES.get(activePlanId.intValue()) + 
-                         " | Zone: " + zone + " (x" + multiplier + ")" +
-                         " | Premium: ₹" + finalPremium);
+        System.out.println("✅ Active plan: " + plan.getName() + " in " + zone + 
+                         " (x" + multiplier + "): ₹" + calculatedPremium + "/week");
         
         return ResponseEntity.ok(response);
-    }
-    
-    private Long getActivePlanIdFromUserPlans(Long userId) {
-        // Query user_plans table
-        // This should return the plan_id from database
-        // For demo, return 1
-        return 1L;
     }
 
     @PostMapping("/plans/activate")
@@ -136,26 +122,41 @@ public class PlanController {
         Long userId = Long.valueOf(request.get("userId").toString());
         Long planId = Long.valueOf(request.get("planId").toString());
         
-        saveUserPlan(userId, planId);
+        // Activate plan (stores only planId, NOT premium)
+        String message = planService.activatePlan(userId, planId);
         
         // Get zone for premium calculation
         Optional<User> userOpt = userRepository.findById(userId);
         String zone = userOpt.map(u -> u.getZone()).orElse("Zone_D_Hyderabad");
         double multiplier = ZONE_MULTIPLIERS.getOrDefault(zone, 1.0);
-        double basePremium = BASE_PREMIUMS.getOrDefault(planId.intValue(), 22.5);
-        double finalPremium = Math.round(basePremium * multiplier * 100.0) / 100.0;
+        
+        Optional<Plan> planOpt = planRepository.findById(planId);
+        double calculatedPremium = 0;
+        if (planOpt.isPresent()) {
+            calculatedPremium = (planOpt.get().getCoverage() / 1000.0) * BASE_RATE_PER_1000 * multiplier;
+            calculatedPremium = Math.round(calculatedPremium * 100.0) / 100.0;
+        }
         
         Map<String, Object> response = new HashMap<>();
-        response.put("message", "Plan activated successfully");
+        response.put("message", message);
         response.put("status", "success");
-        response.put("premium", finalPremium);
+        response.put("premium", calculatedPremium);
         response.put("planId", planId);
+        response.put("zone", zone);
+        response.put("zoneMultiplier", multiplier);
+        
+        System.out.println("✅ Plan activated: ₹" + calculatedPremium + "/week for user " + userId);
         
         return response;
     }
     
-    private void saveUserPlan(Long userId, Long planId) {
-        // Save to user_plans table
-        System.out.println("✅ Activated plan " + planId + " for user " + userId);
+    @GetMapping("/zone-multiplier/{zone}")
+    public ResponseEntity<Map<String, Object>> getZoneMultiplier(@PathVariable String zone) {
+        double multiplier = ZONE_MULTIPLIERS.getOrDefault(zone, 1.0);
+        Map<String, Object> response = new HashMap<>();
+        response.put("zone", zone);
+        response.put("multiplier", multiplier);
+        response.put("baseRatePer1000", BASE_RATE_PER_1000);
+        return ResponseEntity.ok(response);
     }
 }

@@ -132,7 +132,6 @@ export default function Dashboard() {
 
   // Use real data from API
   const totalEarnings = totalProtected;
-  // IMPORTANT: Only use premium if activePlan exists, otherwise show 0
   const weeklyPremium = activePlan?.premium || 0;
   const coverageAmount = activePlan?.coverage || 0;
   const riskLevel = envData?.risk_level || 'Moderate';
@@ -419,7 +418,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* DEMO SIMULATION */}
+      {/* DEMO SIMULATION - WITH EVENT DISPATCH FOR NOTIFICATIONS */}
       <div style={{ marginTop: '2rem', marginBottom: '2rem' }}>
         <div style={{
           background: 'linear-gradient(135deg, #667eea15 0%, #764ba215 100%)',
@@ -442,11 +441,24 @@ export default function Dashboard() {
             Click any button to simulate a real-world disruption. Payout will be processed in &lt;60 seconds.
           </p>
           <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+            
+            {/* HEAVY RAIN BUTTON - WITH EVENT DISPATCH */}
             <button
               onClick={async () => {
                 try {
                   const result = await simulateTrigger('HEAVY_RAIN', 55, user?.id);
                   showToast(`🌧️ ${result.message}`, 'success');
+                  
+                  // Dispatch events for Topbar notifications
+                  if (result.success) {
+                    window.dispatchEvent(new CustomEvent('demoTriggered', { 
+                      detail: { triggerType: 'HEAVY_RAIN', amount: result.payout_amount }
+                    }));
+                    window.dispatchEvent(new CustomEvent('payoutTriggered', { 
+                      detail: { amount: result.payout_amount, triggerType: 'HEAVY_RAIN' }
+                    }));
+                  }
+                  
                   await refreshAllData();
                 } catch (error) {
                   showToast('Demo error: ' + error.message, 'error');
@@ -468,11 +480,23 @@ export default function Dashboard() {
               <CloudRain size={18} /> Simulate Heavy Rain (55mm/hr) → ₹{Math.round(300 + (55-40)*10)}
             </button>
             
+            {/* EXTREME HEAT BUTTON - WITH EVENT DISPATCH */}
             <button
               onClick={async () => {
                 try {
                   const result = await simulateTrigger('EXTREME_HEAT', 45, user?.id);
                   showToast(`🌡️ ${result.message}`, 'success');
+                  
+                  // Dispatch events for Topbar notifications
+                  if (result.success) {
+                    window.dispatchEvent(new CustomEvent('demoTriggered', { 
+                      detail: { triggerType: 'EXTREME_HEAT', amount: result.payout_amount }
+                    }));
+                    window.dispatchEvent(new CustomEvent('payoutTriggered', { 
+                      detail: { amount: result.payout_amount, triggerType: 'EXTREME_HEAT' }
+                    }));
+                  }
+                  
                   await refreshAllData();
                 } catch (error) {
                   showToast('Demo error: ' + error.message, 'error');
@@ -494,11 +518,23 @@ export default function Dashboard() {
               <Thermometer size={18} /> Simulate Extreme Heat (45°C) → ₹{Math.round(200 + (45-42)*15)}
             </button>
             
+            {/* HIGH POLLUTION BUTTON - WITH EVENT DISPATCH */}
             <button
               onClick={async () => {
                 try {
                   const result = await simulateTrigger('HIGH_POLLUTION', 400, user?.id);
                   showToast(`🌫️ ${result.message}`, 'success');
+                  
+                  // Dispatch events for Topbar notifications
+                  if (result.success) {
+                    window.dispatchEvent(new CustomEvent('demoTriggered', { 
+                      detail: { triggerType: 'HIGH_POLLUTION', amount: result.payout_amount }
+                    }));
+                    window.dispatchEvent(new CustomEvent('payoutTriggered', { 
+                      detail: { amount: result.payout_amount, triggerType: 'HIGH_POLLUTION' }
+                    }));
+                  }
+                  
                   await refreshAllData();
                 } catch (error) {
                   showToast('Demo error: ' + error.message, 'error');

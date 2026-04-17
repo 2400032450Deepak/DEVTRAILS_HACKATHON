@@ -19,6 +19,22 @@ export default function PayoutHistory() {
   const [sortBy, setSortBy] = useState('date');
   const [sortOrder, setSortOrder] = useState('desc');
 
+  // Helper function to format date from timestamp
+  const formatDate = (timestamp) => {
+    if (!timestamp) return 'Date not available';
+    try {
+      const date = new Date(timestamp);
+      if (isNaN(date.getTime())) return 'Invalid date';
+      return date.toLocaleDateString('en-IN', { 
+        day: '2-digit', 
+        month: '2-digit', 
+        year: 'numeric' 
+      });
+    } catch (e) {
+      return 'Date error';
+    }
+  };
+
   useEffect(() => {
     const fetchPayouts = async () => {
       setLoading(true);
@@ -28,14 +44,7 @@ export default function PayoutHistory() {
       } catch (error) {
         console.error('Payout fetch error:', error);
         if (showToast) showToast('Error loading payout history', 'error');
-        // Mock data for demo
-        setPayouts([
-          { id: 'PAY_001', date: '2024-03-15', amount: 350, reason: 'Heavy Rainfall (>40mm/hr)', status: 'COMPLETED', transactionId: 'TXN123456', triggerType: 'rainfall' },
-          { id: 'PAY_002', date: '2024-03-10', amount: 250, reason: 'High Pollution (AQI > 300)', status: 'COMPLETED', transactionId: 'TXN123457', triggerType: 'aqi' },
-          { id: 'PAY_003', date: '2024-03-05', amount: 300, reason: 'Extreme Heat (>42°C)', status: 'COMPLETED', transactionId: 'TXN123458', triggerType: 'temperature' },
-          { id: 'PAY_004', date: '2024-02-28', amount: 200, reason: 'Traffic Congestion', status: 'COMPLETED', transactionId: 'TXN123459', triggerType: 'traffic' },
-          { id: 'PAY_005', date: '2024-02-20', amount: 350, reason: 'Heavy Rainfall (>40mm/hr)', status: 'COMPLETED', transactionId: 'TXN123460', triggerType: 'rainfall' },
-        ]);
+        setPayouts([]);
       } finally {
         setLoading(false);
       }
@@ -47,11 +56,15 @@ export default function PayoutHistory() {
   }, [user]);
 
   const getTriggerIcon = (reason) => {
-    const lowerReason = reason.toLowerCase();
-    if (lowerReason.includes('rainfall')) return <CloudRain size={16} style={{ color: '#3b82f6' }} />;
-    if (lowerReason.includes('pollution') || lowerReason.includes('aqi')) return <Wind size={16} style={{ color: '#8b5cf6' }} />;
-    if (lowerReason.includes('heat') || lowerReason.includes('temperature')) return <Thermometer size={16} style={{ color: '#ef4444' }} />;
-    if (lowerReason.includes('traffic')) return <Zap size={16} style={{ color: '#f59e0b' }} />;
+    const lowerReason = (reason || '').toLowerCase();
+    if (lowerReason.includes('rainfall') || lowerReason.includes('rain')) 
+      return <CloudRain size={16} style={{ color: '#3b82f6' }} />;
+    if (lowerReason.includes('pollution') || lowerReason.includes('aqi')) 
+      return <Wind size={16} style={{ color: '#8b5cf6' }} />;
+    if (lowerReason.includes('heat') || lowerReason.includes('temperature')) 
+      return <Thermometer size={16} style={{ color: '#ef4444' }} />;
+    if (lowerReason.includes('traffic')) 
+      return <Zap size={16} style={{ color: '#f59e0b' }} />;
     return <Award size={16} style={{ color: '#10b981' }} />;
   };
 
@@ -67,9 +80,10 @@ export default function PayoutHistory() {
     // Apply filter
     if (filter !== 'all') {
       filtered = filtered.filter(p => {
-        if (filter === 'rainfall') return p.reason.toLowerCase().includes('rainfall');
-        if (filter === 'aqi') return p.reason.toLowerCase().includes('pollution') || p.reason.toLowerCase().includes('aqi');
-        if (filter === 'temperature') return p.reason.toLowerCase().includes('heat') || p.reason.toLowerCase().includes('temperature');
+        const reason = (p.reason || '').toLowerCase();
+        if (filter === 'rainfall') return reason.includes('rainfall') || reason.includes('rain');
+        if (filter === 'aqi') return reason.includes('pollution') || reason.includes('aqi');
+        if (filter === 'temperature') return reason.includes('heat') || reason.includes('temperature');
         return true;
       });
     }
@@ -77,19 +91,21 @@ export default function PayoutHistory() {
     // Apply search
     if (searchTerm) {
       filtered = filtered.filter(p => 
-        p.reason.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.transactionId?.toLowerCase().includes(searchTerm.toLowerCase())
+        (p.reason || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (p.id || '').toString().toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (p.transactionId || '').toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
     
-    // Apply sort
+    // Apply sort - using timestamp for date sorting
     filtered.sort((a, b) => {
       if (sortBy === 'date') {
-        return sortOrder === 'desc' ? new Date(b.date) - new Date(a.date) : new Date(a.date) - new Date(b.date);
+        const dateA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+        const dateB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+        return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
       }
       if (sortBy === 'amount') {
-        return sortOrder === 'desc' ? b.amount - a.amount : a.amount - b.amount;
+        return sortOrder === 'desc' ? (b.amount || 0) - (a.amount || 0) : (a.amount || 0) - (b.amount || 0);
       }
       return 0;
     });
@@ -98,7 +114,7 @@ export default function PayoutHistory() {
   };
 
   const getTotalPayout = () => {
-    return payouts.reduce((sum, p) => sum + p.amount, 0);
+    return payouts.reduce((sum, p) => sum + (p.amount || 0), 0);
   };
 
   const getAveragePayout = () => {
@@ -194,7 +210,6 @@ export default function PayoutHistory() {
         borderRadius: '1rem',
         border: '1px solid var(--border-light)',
       }}>
-        {/* Filter Buttons */}
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
           <button
             onClick={() => setFilter('all')}
@@ -206,7 +221,6 @@ export default function PayoutHistory() {
               borderRadius: '0.5rem',
               fontSize: '0.75rem',
               cursor: 'pointer',
-              transition: 'all 0.2s',
             }}
           >
             All
@@ -264,7 +278,6 @@ export default function PayoutHistory() {
           </button>
         </div>
         
-        {/* Search and Sort */}
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
           <div style={{ position: 'relative' }}>
             <Search size={14} style={{ position: 'absolute', left: '0.5rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
@@ -383,6 +396,8 @@ export default function PayoutHistory() {
           <div>
             {filteredPayouts.map((payout, idx) => {
               const statusStyle = getStatusColor(payout.status);
+              const displayDate = formatDate(payout.timestamp || payout.date);
+              
               return (
                 <div
                   key={payout.id}
@@ -403,16 +418,16 @@ export default function PayoutHistory() {
                     #{payout.id ? String(payout.id).slice(-6) : '000000'}
                   </div>
                   
-                  {/* Date */}
+                  {/* Date - FIXED using formatDate function */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.8rem' }}>
                     <Calendar size={12} style={{ color: 'var(--text-tertiary)' }} />
-                    <span>{new Date(payout.date).toLocaleDateString('en-IN')}</span>
+                    <span>{displayDate}</span>
                   </div>
                   
                   {/* Trigger Event */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     {getTriggerIcon(payout.reason)}
-                    <span style={{ fontSize: '0.875rem' }}>{payout.reason}</span>
+                    <span style={{ fontSize: '0.875rem' }}>{payout.reason || 'Payout credited'}</span>
                     {payout.transactionId && (
                       <span style={{ fontSize: '0.6rem', color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)' }}>
                         {payout.transactionId}
@@ -422,7 +437,7 @@ export default function PayoutHistory() {
                   
                   {/* Amount */}
                   <div style={{ fontWeight: 'bold', color: 'var(--success)', fontSize: '1rem' }}>
-                    +₹{payout.amount.toLocaleString()}
+                    +₹{(payout.amount || 0).toLocaleString()}
                   </div>
                   
                   {/* Status */}
@@ -439,7 +454,7 @@ export default function PayoutHistory() {
                       color: statusStyle.text,
                     }}>
                       {statusStyle.icon}
-                      {payout.status}
+                      {payout.status || 'COMPLETED'}
                     </div>
                   </div>
                 </div>
@@ -470,22 +485,21 @@ export default function PayoutHistory() {
             <div>
               <span style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)' }}>Total Amount</span>
               <div style={{ fontWeight: 'bold', color: 'var(--success)' }}>
-                ₹{filteredPayouts.reduce((sum, p) => sum + p.amount, 0).toLocaleString()}
+                ₹{filteredPayouts.reduce((sum, p) => sum + (p.amount || 0), 0).toLocaleString()}
               </div>
             </div>
             <div>
               <span style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)' }}>Average Payout</span>
               <div style={{ fontWeight: 'bold' }}>
-                ₹{Math.round(filteredPayouts.reduce((sum, p) => sum + p.amount, 0) / filteredPayouts.length).toLocaleString()}
+                ₹{Math.round(filteredPayouts.reduce((sum, p) => sum + (p.amount || 0), 0) / filteredPayouts.length).toLocaleString()}
               </div>
             </div>
           </div>
           <button
             onClick={() => {
-              // Download as CSV functionality
               const csv = [['ID', 'Date', 'Reason', 'Amount', 'Status']];
               filteredPayouts.forEach(p => {
-                csv.push([p.id, p.date, p.reason, p.amount, p.status]);
+                csv.push([p.id, formatDate(p.timestamp || p.date), p.reason, p.amount, p.status]);
               });
               const csvContent = csv.map(row => row.join(',')).join('\n');
               const blob = new Blob([csvContent], { type: 'text/csv' });
