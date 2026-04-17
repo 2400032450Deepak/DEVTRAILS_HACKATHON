@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { getAvailablePlans, getMyPlan, activatePlan } from '../api/config';
+import { getAvailablePlans, getMyPlan, activatePlan, createPayment } from '../api/config';
 import { ToastContext } from '../App';
 import { 
   Shield, Check, Star, TrendingUp, Award, Clock, 
   Zap, Wallet, Calendar, Bell, Info, ChevronRight,
-  CloudRain, Wind, Thermometer, TrafficCone, Server
+  CloudRain, Wind, Thermometer, TrafficCone, Server,
+  CreditCard, AlertTriangle, X
 } from 'lucide-react';
 import LoadingSpinner from '../components/LoadingSpinner';
 
@@ -17,6 +18,14 @@ export default function MyCoverage() {
   const [activePlan, setActivePlan] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activating, setActivating] = useState(false);
+  
+  // Payment modal states
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState('upi');
+  const [upiId, setUpiId] = useState('');
+  const [paymentProcessing, setPaymentProcessing] = useState(false);
 
   useEffect(() => {
     const fetchPlans = async () => {
@@ -46,20 +55,97 @@ export default function MyCoverage() {
     }
   }, [user]);
 
-  const handleActivate = async () => {
-    if (!selectedPlan) return;
-    setActivating(true);
-    try {
-            await activatePlan(user.id, selectedPlan.id);
+  // Handle plan selection - only if no active plan or upgrading
+  const handleSelectPlan = (plan) => {
+    if (activePlan && activePlan.id !== plan.id) {
+      // Upgrading - show upgrade confirmation
+      if (window.confirm(`Upgrade from ${activePlan.name} to ${plan.name}? Your current plan will be replaced.`)) {
+        setSelectedPlan(plan);
+        setShowPaymentModal(true);
+      }
+    } else if (!activePlan) {
+      setSelectedPlan(plan);
+      setShowPaymentModal(true);
+    } else if (activePlan.id === plan.id) {
+      if (showToast) showToast('This is your active plan', 'info');
+    }
+  };
 
-      // fetch latest plan from backend
+  // Handle payment and activation
+  const handlePaymentAndActivate = async () => {
+    if (!acceptedTerms) {
+      if (showToast) showToast('Please accept Terms & Conditions', 'error');
+      return;
+    }
+    
+    if (paymentMethod === 'upi' && !upiId) {
+      if (showToast) showToast('Please enter UPI ID', 'error');
+      return;
+    }
+    
+    setPaymentProcessing(true);
+    
+    try {
+      // Step 1: Create payment
+      const paymentResult = await createPayment({
+        userId: user.id,
+        planId: selectedPlan.id,
+        amount: selectedPlan.premium,
+        paymentMethod: paymentMethod,
+        upiId: paymentMethod === 'upi' ? upiId : null
+      });
+      
+      if (!paymentResult.success) {
+        throw new Error(paymentResult.error || 'Payment failed');
+      }
+      
+      // Step 2: Activate plan
+      await activatePlan(user.id, selectedPlan.id);
+      
+      // Step 3: Refresh active plan
       const updatedPlan = await getMyPlan(user.id);
       setActivePlan(updatedPlan);
-      if (showToast) showToast(`${selectedPlan.name} activated successfully!`, 'success');
+      
+      // Step 4: Close modal and show success
+      setShowPaymentModal(false);
+      if (showToast) showToast(`✅ ${selectedPlan.name} activated! Coverage active for 7 days.`, 'success');
+      
+      // Reset form
+      setAcceptedTerms(false);
+      setUpiId('');
+      
     } catch (error) {
-      if (showToast) showToast('Failed to activate plan', 'error');
+      console.error('Payment error:', error);
+      if (showToast) showToast(error.message || 'Payment failed. Please try again.', 'error');
     } finally {
-      setActivating(false);
+      setPaymentProcessing(false);
+    }
+  };
+
+  // Handle upgrade/cancel plan
+  const handleUpgrade = () => {
+    if (!activePlan) return;
+    // Find next tier plan
+    const currentIndex = plans.findIndex(p => p.id === activePlan.id);
+    const nextPlan = plans[currentIndex - 1];
+    if (nextPlan) {
+      setSelectedPlan(nextPlan);
+      setShowPaymentModal(true);
+    } else {
+      if (showToast) showToast('You are already on the highest plan', 'info');
+    }
+  };
+
+  const handleCancelPlan = async () => {
+    if (window.confirm('Are you sure you want to cancel your coverage? You will not receive any further payouts.')) {
+      // Call cancel API (you need to implement this)
+      try {
+        // await cancelPlan(user.id);
+        setActivePlan(null);
+        if (showToast) showToast('Plan cancelled successfully', 'success');
+      } catch (error) {
+        if (showToast) showToast('Failed to cancel plan', 'error');
+      }
     }
   };
 
@@ -111,15 +197,33 @@ export default function MyCoverage() {
 
   return (
     <div style={{ padding: '1.5rem', maxWidth: '1400px', margin: '0 auto' }}>
-      {/* Header */}
+      {/* Header with Active Plan Status */}
       <div style={{ marginBottom: '2rem' }}>
-        <h1 style={{ fontSize: '1.75rem', fontWeight: 'bold', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <Shield size={28} style={{ color: 'var(--accent-primary)' }} />
-          Insurance Coverage
-        </h1>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-          Weekly parametric protection • AI-powered premiums • Instant payouts
-        </p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+          <div>
+            <h1 style={{ fontSize: '1.75rem', fontWeight: 'bold', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <Shield size={28} style={{ color: 'var(--accent-primary)' }} />
+              Insurance Coverage
+            </h1>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
+              Weekly parametric protection • AI-powered premiums • Instant payouts
+            </p>
+          </div>
+          
+          {/* Active Plan Indicator */}
+          {activePlan && (
+            <div style={{
+              background: 'var(--success-glow)',
+              padding: '0.5rem 1rem',
+              borderRadius: '2rem',
+              border: '1px solid var(--success)',
+            }}>
+              <span style={{ fontSize: '0.75rem', color: 'var(--success)' }}>
+                ✅ Active: {activePlan.name} until {new Date(Date.now() + 7*24*60*60*1000).toLocaleDateString()}
+              </span>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Zone Risk Info */}
@@ -166,63 +270,53 @@ export default function MyCoverage() {
       }}>
         {plans.map((plan, index) => {
           const adjustedPremium = Math.round(plan.premium * getRiskAdjustment(plan.id));
-          const isSelected = selectedPlan?.id === plan.id;
           const isActive = activePlan?.id === plan.id;
-          const isPopular = plan.id === 2;
+          const isSelected = selectedPlan?.id === plan.id;
+          const canUpgrade = activePlan && plan.premium > activePlan.premium;
+          const isDowngrade = activePlan && plan.premium < activePlan.premium;
           
           const planColors = {
-            1: { bg: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', icon: '#8b5cf6' },
+            1: { bg: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', icon: '#10b981' },
             2: { bg: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)', icon: '#3b82f6' },
-            3: { bg: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', icon: '#10b981' }
-          };
-          
-          const planBenefits = {
-            1: ['Highest coverage amount', 'Priority payout processing', '24/7 customer support', 'Accident protection add-on', 'Family coverage option'],
-            2: ['Balanced coverage', 'Standard payout speed', 'Email support', 'Weather protection', 'Traffic compensation'],
-            3: ['Essential coverage', 'Basic payout protection', 'Weather triggers only', 'Email support']
+            3: { bg: 'linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)', icon: '#8b5cf6' }
           };
           
           const planFeatures = {
-            1: { coverage: 1500, payout: '500-800', response: '&lt; 1 min' },
-            2: { coverage: 1000, payout: '300-500', response: '&lt; 5 min' },
-            3: { coverage: 750, payout: '200-350', response: '&lt; 10 min' }
+            1: { coverage: 2000, payout: '800-1200', response: '&lt; 1 min', tier: 'Premium' },
+            2: { coverage: 1200, payout: '400-700', response: '&lt; 3 min', tier: 'Standard' },
+            3: { coverage: 700, payout: '200-400', response: '&lt; 5 min', tier: 'Basic' }
           };
 
           return (
             <div
               key={plan.id}
-              onClick={() => !isActive && setSelectedPlan(plan)}
               style={{
+                position: 'relative',
+                border: `2px solid ${isActive ? '#10b981' : isSelected ? planColors[plan.id]?.icon : 'var(--border-light)'}`,
+                borderRadius: '1rem',
+                padding: '1.5rem',
+                background: 'var(--bg-secondary)',
                 cursor: isActive ? 'default' : 'pointer',
                 opacity: isActive ? 0.9 : 1,
-                position: 'relative',
-                border: `2px solid ${isSelected ? planColors[plan.id]?.icon : 'var(--border-light)'}`,
                 transition: 'all 0.3s ease',
                 transform: isSelected ? 'scale(1.02)' : 'scale(1)',
               }}
-              className="card-modern"
+              onClick={() => !isActive && handleSelectPlan(plan)}
             >
-              {/* Popular Badge */}
-              {isPopular && !isActive && (
-                <div style={{
-                  position: 'absolute',
-                  top: '-12px',
-                  left: '50%',
-                  transform: 'translateX(-50%)',
-                  background: 'var(--gradient-primary)',
-                  color: 'white',
-                  padding: '0.25rem 1rem',
-                  borderRadius: '2rem',
-                  fontSize: '0.7rem',
-                  fontWeight: 'bold',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.25rem',
-                  zIndex: 1,
-                }}>
-                  <Star size={12} /> MOST POPULAR
-                </div>
-              )}
+              {/* Tier Badge */}
+              <div style={{
+                position: 'absolute',
+                top: '-12px',
+                left: '1rem',
+                background: planColors[plan.id]?.bg,
+                color: 'white',
+                padding: '0.25rem 1rem',
+                borderRadius: '2rem',
+                fontSize: '0.7rem',
+                fontWeight: 'bold',
+              }}>
+                {planFeatures[plan.id]?.tier}
+              </div>
               
               {/* Active Badge */}
               {isActive && (
@@ -230,7 +324,7 @@ export default function MyCoverage() {
                   position: 'absolute',
                   top: '1rem',
                   right: '1rem',
-                  background: 'var(--success)',
+                  background: '#10b981',
                   color: 'white',
                   padding: '0.25rem 0.75rem',
                   borderRadius: '2rem',
@@ -239,139 +333,94 @@ export default function MyCoverage() {
                   display: 'flex',
                   alignItems: 'center',
                   gap: '0.25rem',
-                  zIndex: 1,
                 }}>
                   <Check size={12} /> ACTIVE
                 </div>
               )}
               
-              {/* Plan Header */}
-              <div style={{
-                background: planColors[plan.id]?.bg,
-                margin: '-1.5rem -1.5rem 1rem -1.5rem',
-                padding: '1.5rem',
-                borderRadius: '1rem 1rem 0 0',
-                color: 'white',
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                  <div>
-                    <div style={{ fontSize: '0.7rem', opacity: 0.8 }}>WEEKLY PLAN</div>
-                    <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{plan.name}</div>
-                  </div>
-                  {plan.id === 1 && <Award size={28} />}
-                  {plan.id === 2 && <Zap size={28} />}
-                  {plan.id === 3 && <Shield size={28} />}
-                </div>
-                <div style={{ fontSize: '2rem', fontWeight: 'bold', marginTop: '0.5rem' }}>
+              <div style={{ marginTop: '0.5rem' }}>
+                <div style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>{plan.name}</div>
+                <div style={{ fontSize: '2rem', fontWeight: 'bold', color: planColors[plan.id]?.icon }}>
                   ₹{adjustedPremium}
-                  <span style={{ fontSize: '0.875rem', fontWeight: 'normal', opacity: 0.8 }}>/week</span>
+                  <span style={{ fontSize: '0.875rem', fontWeight: 'normal', color: 'var(--text-tertiary)' }}>/week</span>
                 </div>
               </div>
               
-              {/* Coverage Amount */}
               <div style={{
                 textAlign: 'center',
                 padding: '1rem',
                 background: 'var(--bg-primary)',
                 borderRadius: '0.75rem',
-                marginBottom: '1rem',
+                margin: '1rem 0',
               }}>
-                <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', marginBottom: '0.25rem' }}>COVERAGE AMOUNT</div>
-                <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--accent-primary)' }}>
-                  ₹{planFeatures[plan.id]?.coverage?.toLocaleString()}
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)' }}>COVERAGE</div>
+                <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: planColors[plan.id]?.icon }}>
+                  ₹{planFeatures[plan.id]?.coverage}
                 </div>
-                <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)' }}>per week maximum</div>
               </div>
               
-              {/* Features */}
               <div style={{ marginBottom: '1rem' }}>
-                <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', marginBottom: '0.5rem' }}>WHAT'S INCLUDED</div>
-                {planBenefits[plan.id]?.slice(0, 4).map((benefit, idx) => (
-                  <div key={idx} style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    marginBottom: '0.5rem',
-                    fontSize: '0.8rem',
-                  }}>
-                    <Check size={14} style={{ color: 'var(--success)' }} />
-                    <span>{benefit}</span>
-                  </div>
-                ))}
-              </div>
-              
-              {/* Quick Stats */}
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(3, 1fr)',
-                gap: '0.5rem',
-                padding: '0.75rem',
-                background: 'var(--bg-primary)',
-                borderRadius: '0.75rem',
-                marginBottom: '1rem',
-                textAlign: 'center',
-              }}>
-                <div>
-                  <div style={{ fontSize: '0.6rem', color: 'var(--text-tertiary)' }}>Payout</div>
-                  <div style={{ fontSize: '0.875rem', fontWeight: 'bold', color: 'var(--success)' }}>
-                    ₹{planFeatures[plan.id]?.payout}
-                  </div>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', marginBottom: '0.5rem' }}>INCLUDES</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem', fontSize: '0.8rem' }}>
+                  <Check size={14} style={{ color: '#10b981' }} /> Instant payouts
                 </div>
-                <div>
-                  <div style={{ fontSize: '0.6rem', color: 'var(--text-tertiary)' }}>Response</div>
-                  <div style={{ fontSize: '0.875rem', fontWeight: 'bold' }}>
-                    {planFeatures[plan.id]?.response}
-                  </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem', fontSize: '0.8rem' }}>
+                  <Check size={14} style={{ color: '#10b981' }} /> 5 triggers covered
                 </div>
-                <div>
-                  <div style={{ fontSize: '0.6rem', color: 'var(--text-tertiary)' }}>Claims</div>
-                  <div style={{ fontSize: '0.875rem', fontWeight: 'bold' }}>Auto</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem', fontSize: '0.8rem' }}>
+                  <Check size={14} style={{ color: '#10b981' }} /> 24/7 support
                 </div>
               </div>
               
-              {/* Action Button */}
               {!isActive && (
                 <button
-                  onClick={handleActivate}
-                  disabled={activating}
                   style={{
                     width: '100%',
-                    padding: '0.875rem',
+                    padding: '0.75rem',
                     background: isSelected ? planColors[plan.id]?.bg : 'var(--bg-primary)',
-                    color: isSelected ? 'white' : 'var(--text-primary)',
-                    border: isSelected ? 'none' : '1px solid var(--border-light)',
-                    borderRadius: '0.75rem',
+                    color: isSelected ? 'white' : planColors[plan.id]?.icon,
+                    border: `1px solid ${planColors[plan.id]?.icon}`,
+                    borderRadius: '0.5rem',
                     fontWeight: 600,
-                    cursor: activating ? 'not-allowed' : 'pointer',
-                    opacity: activating ? 0.6 : 1,
-                    transition: 'all 0.3s ease',
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!activating && !isSelected) {
-                      e.currentTarget.style.background = 'var(--accent-glow)';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!activating && !isSelected) {
-                      e.currentTarget.style.background = 'var(--bg-primary)';
-                    }
+                    cursor: 'pointer',
                   }}
                 >
-                  {activating && selectedPlan?.id === plan.id ? 'ACTIVATING...' : isSelected ? 'SELECT THIS PLAN' : 'SELECT PLAN'}
+                  {canUpgrade ? 'UPGRADE' : isDowngrade ? 'DOWNGRADE' : 'SELECT PLAN'}
                 </button>
               )}
               
               {isActive && (
-                <div style={{
-                  textAlign: 'center',
-                  padding: '0.875rem',
-                  background: 'var(--success-glow)',
-                  borderRadius: '0.75rem',
-                  color: 'var(--success)',
-                  fontSize: '0.875rem',
-                  fontWeight: 600,
-                }}>
-                  ✓ CURRENTLY ACTIVE
+                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
+                  <button
+                    onClick={handleUpgrade}
+                    style={{
+                      flex: 1,
+                      padding: '0.5rem',
+                      background: 'var(--accent-primary)',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '0.5rem',
+                      cursor: 'pointer',
+                      fontSize: '0.75rem',
+                    }}
+                  >
+                    Upgrade
+                  </button>
+                  <button
+                    onClick={handleCancelPlan}
+                    style={{
+                      flex: 1,
+                      padding: '0.5rem',
+                      background: 'transparent',
+                      color: 'var(--danger)',
+                      border: '1px solid var(--danger)',
+                      borderRadius: '0.5rem',
+                      cursor: 'pointer',
+                      fontSize: '0.75rem',
+                    }}
+                  >
+                    Cancel
+                  </button>
                 </div>
               )}
             </div>
@@ -379,105 +428,223 @@ export default function MyCoverage() {
         })}
       </div>
 
-      {/* Covered Events Section */}
-      <div style={{
-        background: 'var(--bg-secondary)',
-        borderRadius: '1rem',
-        padding: '1.5rem',
-        marginBottom: '1.5rem',
-        border: '1px solid var(--border-light)',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
-          <Bell size={20} style={{ color: 'var(--accent-primary)' }} />
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>Covered Parametric Events</h2>
-        </div>
-        
+      {/* ============================================ */}
+      {/* PAYMENT MODAL */}
+      {/* ============================================ */}
+      {showPaymentModal && (
         <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-          gap: '1rem',
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.7)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
         }}>
-          <div style={{ padding: '0.75rem', background: 'var(--bg-primary)', borderRadius: '0.75rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-              <CloudRain size={18} style={{ color: '#3b82f6' }} />
-              <span style={{ fontWeight: 600 }}>Heavy Rainfall</span>
+          <div style={{
+            background: 'var(--bg-secondary)',
+            borderRadius: '1rem',
+            maxWidth: '500px',
+            width: '90%',
+            maxHeight: '90vh',
+            overflow: 'auto',
+            position: 'relative',
+          }}>
+            <button
+              onClick={() => setShowPaymentModal(false)}
+              style={{
+                position: 'absolute',
+                top: '1rem',
+                right: '1rem',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              <X size={24} />
+            </button>
+            
+            <div style={{ padding: '1.5rem' }}>
+              <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+                <Wallet size={48} style={{ color: 'var(--accent-primary)', marginBottom: '0.5rem' }} />
+                <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>Complete Payment</h2>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
+                  {selectedPlan?.name} - ₹{Math.round(selectedPlan?.premium * getRiskAdjustment(selectedPlan?.id))}/week
+                </p>
+              </div>
+              
+              {/* Payment Method Selection */}
+              <div style={{ marginBottom: '1.5rem' }}>
+                <label style={{ fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.5rem', display: 'block' }}>
+                  Payment Method
+                </label>
+                <div style={{ display: 'flex', gap: '1rem' }}>
+                  <button
+                    onClick={() => setPaymentMethod('upi')}
+                    style={{
+                      flex: 1,
+                      padding: '0.75rem',
+                      background: paymentMethod === 'upi' ? 'var(--accent-glow)' : 'var(--bg-primary)',
+                      border: `1px solid ${paymentMethod === 'upi' ? 'var(--accent-primary)' : 'var(--border-light)'}`,
+                      borderRadius: '0.5rem',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <CreditCard size={20} style={{ marginRight: '0.5rem' }} />
+                    UPI
+                  </button>
+                  <button
+                    onClick={() => setPaymentMethod('card')}
+                    style={{
+                      flex: 1,
+                      padding: '0.75rem',
+                      background: paymentMethod === 'card' ? 'var(--accent-glow)' : 'var(--bg-primary)',
+                      border: `1px solid ${paymentMethod === 'card' ? 'var(--accent-primary)' : 'var(--border-light)'}`,
+                      borderRadius: '0.5rem',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <CreditCard size={20} style={{ marginRight: '0.5rem' }} />
+                    Card
+                  </button>
+                </div>
+              </div>
+              
+              {/* UPI Input */}
+              {paymentMethod === 'upi' && (
+                <div style={{ marginBottom: '1.5rem' }}>
+                  <label style={{ fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.5rem', display: 'block' }}>
+                    UPI ID
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="username@okhdfcbank"
+                    value={upiId}
+                    onChange={(e) => setUpiId(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '0.75rem',
+                      background: 'var(--bg-primary)',
+                      border: '1px solid var(--border-light)',
+                      borderRadius: '0.5rem',
+                      color: 'var(--text-primary)',
+                    }}
+                  />
+                </div>
+              )}
+              
+              {/* Terms & Conditions */}
+              <div style={{ marginBottom: '1.5rem' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={acceptedTerms}
+                    onChange={(e) => setAcceptedTerms(e.target.checked)}
+                  />
+                  <span style={{ fontSize: '0.875rem' }}>
+                    I agree to the{' '}
+                    <button
+                      onClick={() => setShowTermsModal(true)}
+                      style={{ color: 'var(--accent-primary)', background: 'none', border: 'none', cursor: 'pointer' }}
+                    >
+                      Terms & Conditions
+                    </button>
+                  </span>
+                </label>
+              </div>
+              
+              {/* Payment Button */}
+              <button
+                onClick={handlePaymentAndActivate}
+                disabled={paymentProcessing}
+                style={{
+                  width: '100%',
+                  padding: '1rem',
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '0.5rem',
+                  fontWeight: 600,
+                  cursor: paymentProcessing ? 'not-allowed' : 'pointer',
+                  opacity: paymentProcessing ? 0.7 : 1,
+                }}
+              >
+                {paymentProcessing ? 'Processing Payment...' : `Pay ₹${Math.round(selectedPlan?.premium * getRiskAdjustment(selectedPlan?.id))}`}
+              </button>
             </div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>&gt; 40 mm/hr</div>
-            <div style={{ fontSize: '0.7rem', color: 'var(--success)', marginTop: '0.25rem' }}>Payout: ₹300-500</div>
-          </div>
-          
-          <div style={{ padding: '0.75rem', background: 'var(--bg-primary)', borderRadius: '0.75rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-              <Thermometer size={18} style={{ color: '#ef4444' }} />
-              <span style={{ fontWeight: 600 }}>Extreme Heat</span>
-            </div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>&gt; 42°C</div>
-            <div style={{ fontSize: '0.7rem', color: 'var(--success)', marginTop: '0.25rem' }}>Payout: ₹200-400</div>
-          </div>
-          
-          <div style={{ padding: '0.75rem', background: 'var(--bg-primary)', borderRadius: '0.75rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-              <Wind size={18} style={{ color: '#8b5cf6' }} />
-              <span style={{ fontWeight: 600 }}>High Pollution</span>
-            </div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>AQI &gt; 300</div>
-            <div style={{ fontSize: '0.7rem', color: 'var(--success)', marginTop: '0.25rem' }}>Payout: ₹250-450</div>
-          </div>
-          
-          <div style={{ padding: '0.75rem', background: 'var(--bg-primary)', borderRadius: '0.75rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-              <TrafficCone size={18} style={{ color: '#f59e0b' }} />
-              <span style={{ fontWeight: 600 }}>Traffic Congestion</span>
-            </div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Severe conditions</div>
-            <div style={{ fontSize: '0.7rem', color: 'var(--success)', marginTop: '0.25rem' }}>Payout: ₹150-300</div>
-          </div>
-          
-          <div style={{ padding: '0.75rem', background: 'var(--bg-primary)', borderRadius: '0.75rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-              <Server size={18} style={{ color: '#6b7280' }} />
-              <span style={{ fontWeight: 600 }}>Platform Downtime</span>
-            </div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>&gt; 30 minutes</div>
-            <div style={{ fontSize: '0.7rem', color: 'var(--success)', marginTop: '0.25rem' }}>Payout: ₹200-350</div>
           </div>
         </div>
-      </div>
-
-      {/* FAQ / Info Section */}
-      <div style={{
-        background: 'var(--bg-secondary)',
-        borderRadius: '1rem',
-        padding: '1.5rem',
-        border: '1px solid var(--border-light)',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
-          <Info size={20} style={{ color: 'var(--accent-primary)' }} />
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>How It Works</h2>
-        </div>
-        
+      )}
+      
+      {/* Terms Modal */}
+      {showTermsModal && (
         <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-          gap: '1.5rem',
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.7)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1001,
         }}>
-          <div>
-            <div style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--accent-primary)', marginBottom: '0.25rem' }}>1</div>
-            <div style={{ fontWeight: 'bold', marginBottom: '0.25rem' }}>Select Your Plan</div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Choose from 3 tiers based on your needs and budget</div>
-          </div>
-          <div>
-            <div style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--accent-primary)', marginBottom: '0.25rem' }}>2</div>
-            <div style={{ fontWeight: 'bold', marginBottom: '0.25rem' }}>AI Monitors Conditions</div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Real-time tracking of weather, AQI, and traffic</div>
-          </div>
-          <div>
-            <div style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--accent-primary)', marginBottom: '0.25rem' }}>3</div>
-            <div style={{ fontWeight: 'bold', marginBottom: '0.25rem' }}>Auto Payout</div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Instant disbursement when thresholds are breached</div>
+          <div style={{
+            background: 'var(--bg-secondary)',
+            borderRadius: '1rem',
+            maxWidth: '500px',
+            width: '90%',
+            maxHeight: '80vh',
+            overflow: 'auto',
+            position: 'relative',
+            padding: '1.5rem',
+          }}>
+            <button
+              onClick={() => setShowTermsModal(false)}
+              style={{
+                position: 'absolute',
+                top: '1rem',
+                right: '1rem',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              <X size={24} />
+            </button>
+            
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '1rem' }}>Terms & Conditions</h2>
+            
+            <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+              <p><strong>1. Coverage</strong><br />This policy covers income loss due to parametric triggers: heavy rainfall (&gt;40mm/hr), extreme heat (&gt;42°C), high pollution (AQI&gt;300), traffic congestion, and platform downtime.</p>
+              <p><strong>2. Exclusions</strong><br />This policy does NOT cover health issues, accidents, vehicle damage, or medical expenses.</p>
+              <p><strong>3. Payouts</strong><br />Payouts are automatically triggered when conditions are met. No claim filing required.</p>
+              <p><strong>4. Fraud</strong><br />Any fraudulent activity will result in immediate termination and legal action.</p>
+              <p><strong>5. Cancellation</strong><br />You may cancel anytime. No refunds for remaining period.</p>
+            </div>
+            
+            <button
+              onClick={() => setShowTermsModal(false)}
+              style={{
+                width: '100%',
+                padding: '0.75rem',
+                marginTop: '1rem',
+                background: 'var(--accent-primary)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '0.5rem',
+                cursor: 'pointer',
+              }}
+            >
+              Close
+            </button>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

@@ -64,6 +64,7 @@ public class PaymentController {
             // Get AI recommendations
             String riskLevel = (String) aiResponse.getOrDefault("risk_level", "Moderate");
             Double premiumAmount = ((Number) aiResponse.getOrDefault("weekly_premium_inr", 25.0)).doubleValue();
+            @SuppressWarnings("unchecked")
             Map<String, Object> payout = (Map<String, Object>) aiResponse.getOrDefault("payout", Map.of());
             
             System.out.println("✅ Payment successful: " + paymentId);

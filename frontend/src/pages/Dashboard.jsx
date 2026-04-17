@@ -5,6 +5,7 @@ import { ToastContext } from '../App';
 import { ZONE_DISPLAY_NAMES } from '../utils/constants';
 import { Shield, TrendingUp, Award, Clock, CloudRain, Wind, Thermometer, DollarSign, Calendar, CheckCircle, AlertTriangle, Zap, User } from 'lucide-react';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { simulateTrigger } from '../api/config';
 
 export default function Dashboard() {
   const { user, zone } = useAuth();
@@ -260,6 +261,114 @@ export default function Dashboard() {
           gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
           gap: '1rem',
         }}>
+
+  {/* DEMO SIMULATION - FOR JUDGES */}
+<div style={{ marginTop: '2rem', marginBottom: '2rem' }}>
+  <div style={{
+    background: 'linear-gradient(135deg, #667eea15 0%, #764ba215 100%)',
+    borderRadius: '1rem',
+    padding: '1.5rem',
+    border: '2px dashed var(--accent-primary)',
+  }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+      <Zap size={24} style={{ color: 'var(--accent-primary)' }} />
+      <h3 style={{ fontWeight: 'bold' }}>🎬 Demo Mode: Instant Payout Simulation</h3>
+      <span style={{
+        fontSize: '0.65rem',
+        padding: '0.2rem 0.5rem',
+        background: 'var(--accent-primary)',
+        borderRadius: '1rem',
+        color: 'white',
+      }}>SHOW JUDGES</span>
+    </div>
+    <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
+      Click any button to simulate a real-world disruption. Payout will be processed in &lt;60 seconds.
+    </p>
+    <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+      <button
+        onClick={async () => {
+          try {
+            const result = await simulateTrigger('HEAVY_RAIN', 55, user?.id);
+            showToast(`🌧️ ${result.message}`, 'success');
+            // Refresh payout history
+            const newPayouts = await getPayoutHistory(user?.id);
+            setRecentPayouts(newPayouts.slice(0, 3));
+          } catch (error) {
+            showToast('Demo error: ' + error.message, 'error');
+          }
+        }}
+        style={{
+          padding: '0.75rem 1.5rem',
+          background: '#3b82f6',
+          border: 'none',
+          borderRadius: '0.5rem',
+          color: 'white',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+          fontWeight: 600,
+        }}
+      >
+        <CloudRain size={18} /> Simulate Heavy Rain (55mm/hr) → ₹{Math.round(300 + (55-40)*10)}
+      </button>
+      
+      <button
+        onClick={async () => {
+          try {
+            const result = await simulateTrigger('EXTREME_HEAT', 45, user?.id);
+            showToast(`🌡️ ${result.message}`, 'success');
+            const newPayouts = await getPayoutHistory(user?.id);
+            setRecentPayouts(newPayouts.slice(0, 3));
+          } catch (error) {
+            showToast('Demo error: ' + error.message, 'error');
+          }
+        }}
+        style={{
+          padding: '0.75rem 1.5rem',
+          background: '#ef4444',
+          border: 'none',
+          borderRadius: '0.5rem',
+          color: 'white',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+          fontWeight: 600,
+        }}
+      >
+        <Thermometer size={18} /> Simulate Extreme Heat (45°C) → ₹{Math.round(200 + (45-42)*15)}
+      </button>
+      
+      <button
+        onClick={async () => {
+          try {
+            const result = await simulateTrigger('HIGH_POLLUTION', 400, user?.id);
+            showToast(`🌫️ ${result.message}`, 'success');
+            const newPayouts = await getPayoutHistory(user?.id);
+            setRecentPayouts(newPayouts.slice(0, 3));
+          } catch (error) {
+            showToast('Demo error: ' + error.message, 'error');
+          }
+        }}
+        style={{
+          padding: '0.75rem 1.5rem',
+          background: '#8b5cf6',
+          border: 'none',
+          borderRadius: '0.5rem',
+          color: 'white',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+          fontWeight: 600,
+        }}
+      >
+        <Wind size={18} /> Simulate High Pollution (AQI 400) → ₹{Math.round(250 + (400-300)*2)}
+      </button>
+    </div>
+  </div>
+</div>
           {/* Rainfall */}
           <div style={{
             background: 'var(--bg-secondary)',

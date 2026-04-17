@@ -1,18 +1,24 @@
 // DeliverShield AI - Complete API Configuration
 
 // ============================================
-// PRODUCTION CONFIGURATION
+// PRODUCTION (Render/Vercel) - UNCOMMENT FOR DEPLOYMENT
 // ============================================
-
 const API_BASE = 'https://delivershield-backend.onrender.com/api';
 const AI_BASE = 'https://devtrails-ai.onrender.com/evaluate';
 
 // ============================================
-// Helper: Wake up backend (fix Render cold start)
+// LOCAL DEVELOPMENT - COMMENT OUT FOR PRODUCTION
+// ============================================
+// const API_BASE = 'http://localhost:8080/api';
+// const AI_BASE = 'http://localhost:5000/evaluate';
+
+// ============================================
+// Helper: Wake up backend (fix cold start)
 // ============================================
 const wakeUpBackend = async () => {
   try {
-    await fetch('https://delivershield-backend.onrender.com');
+    // Production - call Render backend
+    await fetch('https://delivershield-backend.onrender.com/api/health');
   } catch {
     console.warn("Backend wake-up skipped");
   }
@@ -44,7 +50,7 @@ const fetchWithTimeout = async (url, options = {}, timeout = 4000) => {
 const getLiveLocation = () => {
   return new Promise((resolve) => {
     if (!navigator.geolocation) {
-      resolve({ lat: 19.0760, lon: 72.8777 });
+      resolve({ lat: 16.4480, lon: 80.6172 });
       return;
     }
 
@@ -54,7 +60,7 @@ const getLiveLocation = () => {
           lat: pos.coords.latitude,
           lon: pos.coords.longitude
         }),
-      () => resolve({ lat: 19.0760, lon: 72.8777 }),
+      () => resolve({ lat: 16.4480, lon: 80.6172 }),
       { timeout: 4000 }
     );
   });
@@ -82,7 +88,6 @@ export const registerUser = async (name, email, phone, password) => {
 
 export const loginUser = async (phone, password) => {
   try {
-    // 🔥 Wake backend first
     await wakeUpBackend();
 
     const res = await fetch(`${API_BASE}/auth/login`, {
@@ -104,17 +109,6 @@ export const loginUser = async (phone, password) => {
     }
   } catch (err) {
     console.error("Login error:", err);
-    throw err;
-  }
-};
-
-// Replace the existing googleLogin function with this:
-export const googleLogin = async () => {
-  try {
-    // Redirect to backend's Google OAuth endpoint
-    window.location.href = 'https://delivershield-backend.onrender.com/oauth2/authorization/google';
-  } catch (err) {
-    console.error("Google login error:", err);
     throw err;
   }
 };
@@ -149,7 +143,13 @@ export const getLiveTriggers = async (zoneId) => {
     worker_id: "WKR-SYSTEM",
     zone: zoneId,
     gps_lat: coords.lat,
-    gps_lon: coords.lon
+    gps_lon: coords.lon,
+    daily_earnings_inr: 800,
+    weekly_earnings_inr: 5600,
+    num_deliveries: 12,
+    active_hours: 6,
+    gps_speed_variance: 1.2,
+    location_jump_km: 0
   };
 
   try {
@@ -186,7 +186,7 @@ export const getRiskScore = async (workerId) => {
 
   const payload = {
     worker_id: workerId,
-    zone: "Zone_B_Mumbai",
+    zone: "Zone_D_Hyderabad",
     gps_lat: coords.lat,
     gps_lon: coords.lon
   };
@@ -285,4 +285,63 @@ export const getDashboardStats = async (workerId, zone) => {
   const risk = await getRiskScore(workerId);
 
   return { profile, triggers, risk };
+};
+
+// ============================================
+// SIMULATE TRIGGER (For Demo)
+// ============================================
+
+export const simulateTrigger = async (type, value, userId) => {
+  try {
+    const response = await fetch(`${API_BASE}/payout/simulate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        type: type,
+        value: value.toString(),
+        userId: userId.toString()
+      })
+    });
+    
+    if (!response.ok) {
+      throw new Error('Simulation failed');
+    }
+    
+    const data = await response.json();
+    console.log('✅ Simulate trigger response:', data);
+    return data;
+    
+  } catch (error) {
+    console.error('❌ Simulate trigger error:', error);
+    const amount = type === 'HEAVY_RAIN' ? 450 : type === 'EXTREME_HEAT' ? 350 : 400;
+    return {
+      success: true,
+      payout_amount: amount,
+      reason: `Demo: ${type} simulation`,
+      transaction_id: 'DEMO_' + Date.now(),
+      message: `✅ Demo payout of ₹${amount} processed!`
+    };
+  }
+};
+
+// ============================================
+// PAYMENT
+// ============================================
+
+export const createPayment = async (paymentData) => {
+  try {
+    const res = await fetch(`${API_BASE}/payment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(paymentData)
+    });
+    
+    const data = await res.json();
+    return data;
+  } catch (error) {
+    console.error('Payment error:', error);
+    return { success: false, error: error.message };
+  }
 };

@@ -16,7 +16,7 @@ export default function Auth() {
     phone: '',
     password: '',
     confirmPassword: '',
-    zone: ''  // ✅ Added zone field
+    zone: ''
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -36,7 +36,7 @@ export default function Auth() {
   const { login, setZone } = useAuth();
   const navigate = useNavigate();
 
-  // ✅ Auto-detect location from GPS
+  // Auto-detect location from GPS
   const detectLocationFromGPS = () => {
     setDetectingLocation(true);
     
@@ -52,7 +52,6 @@ export default function Auth() {
         console.log("📍 GPS Location detected:", latitude, longitude);
         
         try {
-          // Reverse geocode to get city name
           const response = await fetch(
             `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=10&addressdetails=1`
           );
@@ -69,7 +68,6 @@ export default function Auth() {
             setFormData(prev => ({ ...prev, zone: city }));
             console.log("📍 City detected:", city);
           } else {
-            // Try to get state as fallback
             const state = data.address?.state || '';
             if (state) {
               setDetectedCity(state);
@@ -91,36 +89,7 @@ export default function Auth() {
     );
   };
 
-  // Auto-fill from Google OAuth callback
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const googleEmail = urlParams.get('googleEmail');
-    const googleName = urlParams.get('googleName');
-    
-    if (googleEmail) {
-      console.log("📧 Auto-filling Google email:", googleEmail);
-      setFormData(prev => ({
-        ...prev,
-        email: googleEmail,
-        name: googleName || prev.name
-      }));
-      window.history.replaceState({}, document.title, window.location.pathname);
-    } else {
-      const storedEmail = localStorage.getItem('googleEmail');
-      const storedName = localStorage.getItem('googleName');
-      if (storedEmail && !formData.email) {
-        setFormData(prev => ({
-          ...prev,
-          email: storedEmail,
-          name: storedName || prev.name
-        }));
-        localStorage.removeItem('googleEmail');
-        localStorage.removeItem('googleName');
-      }
-    }
-  }, []);
-
-  // ✅ Auto-detect location when switching to Sign Up mode
+  // Auto-detect location when switching to Sign Up mode
   useEffect(() => {
     if (!isLogin && !formData.zone && !detectedCity && !detectingLocation) {
       detectLocationFromGPS();
@@ -167,13 +136,11 @@ export default function Auth() {
     }
   };
 
-  // Email validation
   const isValidEmail = (email) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
   };
 
-  // Phone validation (Indian 10-digit)
   const isValidPhone = (phone) => {
     const phoneRegex = /^[6-9]\d{9}$/;
     return phoneRegex.test(phone);
@@ -185,7 +152,6 @@ export default function Auth() {
     setSuccessMsg('');
     setLoading(true);
 
-    // Validation
     if (!isLogin) {
       if (!formData.name.trim()) {
         setError('Please enter your full name');
@@ -233,9 +199,7 @@ export default function Auth() {
       } else {
         await registerUser(formData.name, formData.email, formData.phone, formData.password);
         
-        // ✅ Store detected zone if available
         if (formData.zone && setZone) {
-          // Map city to zone (you can expand this mapping)
           const cityToZone = {
             'mumbai': 'Zone_B_Mumbai',
             'delhi': 'Zone_C_Delhi', 
@@ -246,7 +210,7 @@ export default function Auth() {
           };
           
           const cityLower = formData.zone.toLowerCase();
-          let mappedZone = 'Zone_B_Mumbai'; // default
+          let mappedZone = 'Zone_B_Mumbai';
           
           for (const [city, zone] of Object.entries(cityToZone)) {
             if (cityLower.includes(city)) {
@@ -295,7 +259,6 @@ export default function Auth() {
         padding: '2rem',
         boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
       }}>
-        {/* Header */}
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
           <div style={{
             width: '70px',
@@ -317,7 +280,6 @@ export default function Auth() {
           </p>
         </div>
 
-        {/* Success Message */}
         {successMsg && (
           <div style={{
             padding: '0.75rem',
@@ -337,7 +299,6 @@ export default function Auth() {
           </div>
         )}
 
-        {/* Error Message */}
         {error && (
           <div style={{
             padding: '0.75rem',
@@ -357,7 +318,6 @@ export default function Auth() {
           </div>
         )}
 
-        {/* Form */}
         <form onSubmit={handleSubmit}>
           {!isLogin && (
             <>
@@ -387,7 +347,6 @@ export default function Auth() {
                 />
               </div>
 
-              {/* ✅ Zone/City field with auto-detection */}
               <div className="input-group">
                 <MapPin size={18} className="input-icon" />
                 <input
@@ -411,7 +370,6 @@ export default function Auth() {
                 )}
               </div>
 
-              {/* ✅ Show detected location message */}
               {detectedCity && !formData.zone && (
                 <div style={{
                   fontSize: '0.7rem',
@@ -478,7 +436,6 @@ export default function Auth() {
             </button>
           </div>
 
-          {/* Password Strength Indicator */}
           {!isLogin && formData.password && (
             <div style={{ marginBottom: '1rem' }}>
               <div style={{ display: 'flex', gap: '0.25rem', marginBottom: '0.5rem' }}>
@@ -559,7 +516,6 @@ export default function Auth() {
           </button>
         </form>
 
-        {/* Toggle between Login/Register */}
         <div style={{ marginTop: '1.5rem', textAlign: 'center' }}>
           <button
             onClick={() => {
@@ -589,7 +545,6 @@ export default function Auth() {
           </button>
         </div>
 
-        {/* Footer */}
         <div style={{
           marginTop: '1.5rem',
           paddingTop: '1rem',
