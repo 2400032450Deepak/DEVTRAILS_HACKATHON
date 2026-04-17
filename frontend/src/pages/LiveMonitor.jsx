@@ -21,6 +21,7 @@ export default function LiveMonitor() {
   const [error, setError] = useState(null);
   const [retryCount, setRetryCount] = useState(0);
   const [apiStatus, setApiStatus] = useState('checking');
+  const [dataSource, setDataSource] = useState('unknown');
 
   // Calculate real payout based on actual trigger values
   const calculateRealPayout = useCallback((conditions) => {
@@ -62,6 +63,10 @@ export default function LiveMonitor() {
       console.log('🌡️ Fetching live weather data for zone:', zone);
       
       const triggerData = await getLiveTriggers(zone);
+      
+      // Check data source from API response
+      const source = triggerData?.live_conditions?.source || 'unknown';
+      setDataSource(source);
       
       // Validate real data (not mock)
       const hasRealData = triggerData?.live_conditions && 
@@ -132,17 +137,28 @@ export default function LiveMonitor() {
     fetchData();
     let interval;
     if (autoRefresh) {
-      interval = setInterval(fetchData, 30000); // Refresh every 30 seconds (real data)
+      interval = setInterval(fetchData, 30000); // Refresh every 30 seconds
     }
     return () => clearInterval(interval);
   }, [zone, autoRefresh, retryCount, fetchData]);
 
-  // Get status message based on API response
+  // Get status message based on API response and data source
   const getApiStatusMessage = () => {
-    if (apiStatus === 'live') return '✅ Live data from Open-Meteo API';
+    if (apiStatus === 'live') {
+      if (dataSource === 'weatherapi') return '✅ Live data from WeatherAPI.com';
+      if (dataSource === 'openmeteo') return '✅ Live data from Open-Meteo API';
+      return '✅ Live data from API';
+    }
     if (apiStatus === 'fallback') return '⚠️ Using cached data (API slow)';
     if (apiStatus === 'error') return '❌ API connection issue';
     return '🔄 Fetching real-time data...';
+  };
+
+  // Get data source display name
+  const getDataSourceName = () => {
+    if (dataSource === 'weatherapi') return 'WeatherAPI.com';
+    if (dataSource === 'openmeteo') return 'Open-Meteo';
+    return 'Weather Service';
   };
 
   // Error state with retry button
@@ -201,6 +217,7 @@ export default function LiveMonitor() {
     aqi: 0, 
     temperature_c: 0,
     humidity_pct: 0,
+    source: 'unknown',
     timestamp: new Date().toISOString()
   };
   
@@ -327,7 +344,7 @@ export default function LiveMonitor() {
         </div>
       </div>
 
-      {/* Real-time Data Source Info */}
+      {/* Real-time Data Source Info - NOW SHOWS CORRECT SOURCE */}
       <div style={{
         background: 'var(--bg-primary)',
         borderRadius: '0.5rem',
@@ -341,9 +358,9 @@ export default function LiveMonitor() {
         flexWrap: 'wrap',
       }}>
         <Cloud size={12} />
-        <span>Data Source: Open-Meteo API (Real-time)</span>
+        <span>Data Source: <strong>{getDataSourceName()}</strong> (Real-time)</span>
         <span>•</span>
-        <span>AQI: WAQI API</span>
+        <span>AQI: {conditions?.aqi || 'Loading...'}</span>
         <span>•</span>
         <span>Updates every 30 seconds</span>
         {conditions?.timestamp && (
@@ -627,7 +644,7 @@ export default function LiveMonitor() {
         </div>
         
         <div style={{ fontSize: '0.65rem', color: 'var(--text-tertiary)', textAlign: 'center', marginTop: '0.5rem' }}>
-          Payouts are automatically calculated based on real-time weather data from Open-Meteo API
+          Payouts are automatically calculated based on real-time weather data from {getDataSourceName()}
         </div>
       </div>
 

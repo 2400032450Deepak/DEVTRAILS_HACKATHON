@@ -7,8 +7,11 @@ import os
 app = Flask(__name__)
 CORS(app)
 
-# WeatherAPI key (use environment variable in production)
+# WeatherAPI key
 WEATHERAPI_KEY = "516c2e4969b545f4a15142519261704"
+
+# WAQI token for fallback
+WAQI_TOKEN = "6fb5cda18acaa3f9e6f8e8a18e7d8d0d88fb6944"
 
 # Zone coordinates
 ZONE_COORDS = {
@@ -20,7 +23,7 @@ ZONE_COORDS = {
 }
 
 def get_weather_weatherapi(lat, lon):
-    """Fetch real-time weather from WeatherAPI.com"""
+    """Fetch real-time weather and AQI from WeatherAPI.com"""
     try:
         url = f"http://api.weatherapi.com/v1/current.json?key={WEATHERAPI_KEY}&q={lat},{lon}&aqi=yes"
         response = requests.get(url, timeout=10)
@@ -29,15 +32,41 @@ def get_weather_weatherapi(lat, lon):
         current = data.get('current', {})
         aqi_data = current.get('air_quality', {})
         
-        # Convert EPA index to approximate AQI value
-        epa_index = aqi_data.get('us-epa-index', 2)
-        aqi_map = {1: 50, 2: 150, 3: 200, 4: 300, 5: 400}
+        # Get PM2.5 for accurate AQI calculation
+        pm25 = aqi_data.get('pm2_5', 0)
+        us_epa_index = aqi_data.get('us-epa-index', 2)
+        
+        # Calculate AQI based on PM2.5 (most accurate method)
+        if pm25 > 0:
+            # PM2.5 to AQI conversion based on EPA standard
+            if pm25 <= 12.0:
+                aqi = int((50 - 0) / (12.0 - 0) * (pm25 - 0) + 0)
+            elif pm25 <= 35.4:
+                aqi = int((100 - 51) / (35.4 - 12.1) * (pm25 - 12.1) + 51)
+            elif pm25 <= 55.4:
+                aqi = int((150 - 101) / (55.4 - 35.5) * (pm25 - 35.5) + 101)
+            elif pm25 <= 150.4:
+                aqi = int((200 - 151) / (150.4 - 55.5) * (pm25 - 55.5) + 151)
+            elif pm25 <= 250.4:
+                aqi = int((300 - 201) / (250.4 - 150.5) * (pm25 - 150.5) + 201)
+            else:
+                aqi = int((500 - 301) / (500.4 - 250.5) * (pm25 - 250.5) + 301)
+            
+            # Clamp AQI to valid range
+            aqi = max(0, min(500, aqi))
+        else:
+            # Fallback to EPA index mapping
+            aqi_map = {1: 45, 2: 105, 3: 175, 4: 225, 5: 275, 6: 350}
+            aqi = aqi_map.get(us_epa_index, 150)
+        
+        print(f"📊 WeatherAPI: temp={current.get('temp_c')}°C, pm2.5={pm25}, us-epa-index={us_epa_index}, calculated AQI={aqi}")
         
         return {
             'rainfall': current.get('precip_mm', 0),
             'temp': current.get('temp_c', 30),
             'humidity': current.get('humidity', 65),
-            'aqi': aqi_map.get(epa_index, 150),
+            'aqi': aqi,
+            'pm25': pm25,
             'condition': current.get('condition', {}).get('text', ''),
             'source': 'weatherapi'
         }
@@ -57,12 +86,45 @@ def get_weather_openmeteo(lat, lon):
             'rainfall': current.get('rain', 0),
             'temp': current.get('temperature_2m', 30),
             'humidity': current.get('relative_humidity_2m', 65),
-            'aqi': 150,
+            'aqi': None,  # Will use fallback
             'source': 'openmeteo'
         }
     except Exception as e:
         print(f"Open-Meteo error: {e}")
         return None
+
+def get_aqi_fallback(zone):
+    """Fallback to WAQI API for AQI"""
+    try:
+        city_map = {
+            'Zone_A_Bangalore': 'bangalore',
+            'Zone_B_Mumbai': 'mumbai',
+            'Zone_C_Delhi': 'delhi',
+            'Zone_D_Hyderabad': 'hyderabad',
+            'Zone_E_Chennai': 'chennai'
+        }
+        city = city_map.get(zone, 'hyderabad')
+        url = f"https://api.waqi.info/feed/{city}/?token={WAQI_TOKEN}"
+        response = requests.get(url, timeout=5)
+        data = response.json()
+        if data.get('status') == 'ok':
+            aqi = data.get('data', {}).get('aqi', 150)
+            print(f"✅ WAQI AQI for {city}: {aqi}")
+            return aqi
+    except Exception as e:
+        print(f"WAQI error: {e}")
+    
+    # Ultimate fallback by zone
+    aqi_map = {
+        'Zone_A_Bangalore': 120,
+        'Zone_B_Mumbai': 180,
+        'Zone_C_Delhi': 250,
+        'Zone_D_Hyderabad': 140,
+        'Zone_E_Chennai': 130
+    }
+    fallback_aqi = aqi_map.get(zone, 150)
+    print(f"📊 Using zone fallback AQI: {fallback_aqi}")
+    return fallback_aqi
 
 def get_weather_for_zone(zone, lat=None, lon=None):
     """Get weather for zone, trying WeatherAPI first"""
@@ -74,27 +136,12 @@ def get_weather_for_zone(zone, lat=None, lon=None):
     # Try WeatherAPI first
     weather = get_weather_weatherapi(coords[0], coords[1])
     
-    # Fallback to Open-Meteo
+    # Fallback to Open-Meteo if WeatherAPI fails
     if not weather:
         print("⚠️ WeatherAPI failed, falling back to Open-Meteo")
         weather = get_weather_openmeteo(coords[0], coords[1])
     
     return weather
-
-def get_aqi_for_zone(zone, weather):
-    """Get AQI from weather data or fallback"""
-    if weather and 'aqi' in weather:
-        return weather['aqi']
-    
-    # Fallback AQI by zone
-    aqi_map = {
-        'Zone_A_Bangalore': 120,
-        'Zone_B_Mumbai': 180,
-        'Zone_C_Delhi': 250,
-        'Zone_D_Hyderabad': 140,
-        'Zone_E_Chennai': 130
-    }
-    return aqi_map.get(zone, 150)
 
 def calculate_risk(rainfall, temp, aqi):
     score = 0
@@ -151,17 +198,25 @@ def evaluate():
             rainfall = weather['rainfall']
             temp = weather['temp']
             humidity = weather['humidity']
-            aqi = get_aqi_for_zone(zone, weather)
             source = weather.get('source', 'unknown')
+            
+            # Get AQI - from weather if available, else from fallback
+            if weather.get('aqi') is not None and weather['aqi'] > 0:
+                aqi = weather['aqi']
+                print(f"📊 AQI from WeatherAPI: {aqi}")
+            else:
+                aqi = get_aqi_fallback(zone)
+                print(f"📊 AQI from fallback: {aqi}")
         else:
             # Ultimate fallback
             rainfall = 0
             temp = 30
             humidity = 65
-            aqi = 150
+            aqi = get_aqi_fallback(zone)
             source = 'fallback'
+            print(f"📊 Using complete fallback: AQI={aqi}")
         
-        print(f"📊 Data from {source}: Temp={temp}°C, Rain={rainfall}mm, AQI={aqi}")
+        print(f"📊 Final conditions: Temp={temp}°C, Rain={rainfall}mm, AQI={aqi}")
         
         risk_level, risk_score = calculate_risk(rainfall, temp, aqi)
         premium = calculate_premium(risk_level)
@@ -189,7 +244,7 @@ def evaluate():
             }
         }
         
-        print(f"✅ Response: Risk={risk_level}, Premium=₹{premium}")
+        print(f"✅ Response: Risk={risk_level}, Premium=₹{premium}, AQI={aqi}")
         return jsonify(response)
         
     except Exception as e:
