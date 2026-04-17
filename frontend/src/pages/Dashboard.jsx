@@ -6,10 +6,12 @@ import { ZONE_DISPLAY_NAMES } from '../utils/constants';
 import { Shield, TrendingUp, Award, Clock, CloudRain, Wind, Thermometer, DollarSign, Calendar, CheckCircle, AlertTriangle, Zap, User } from 'lucide-react';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { simulateTrigger } from '../api/config';
+import { useNavigate } from 'react-router-dom';
 
 export default function Dashboard() {
   const { user, zone } = useAuth();
   const { showToast } = useContext(ToastContext);
+  const navigate = useNavigate(); // ✅ ADD THIS LINE
   const [profile, setProfile] = useState(null);
   const [envData, setEnvData] = useState(null);
   const [activePlan, setActivePlan] = useState(null);
@@ -79,7 +81,7 @@ export default function Dashboard() {
           getPayoutHistory(user?.id)
         ]);
         
-        // Debug logging - ADD THIS SECTION
+        // Debug logging
         console.log('📊 Active Plan from API:', planData);
         console.log('📊 Plan premium:', planData?.premium);
         console.log('📊 Plan coverage:', planData?.coverage);
@@ -422,7 +424,7 @@ export default function Dashboard() {
               background: 'var(--accent-primary)',
               borderRadius: '1rem',
               color: 'white',
-            }}></span>
+            }}>SHOW JUDGES</span>
           </div>
           <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
             Click any button to simulate a real-world disruption. Payout will be processed in &lt;60 seconds.
@@ -571,7 +573,7 @@ export default function Dashboard() {
               <Shield size={48} style={{ color: 'var(--text-tertiary)', marginBottom: '1rem' }} />
               <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem' }}>No active coverage detected</p>
               <button
-                onClick={() => window.location.href = '/my-coverage'}
+                onClick={() => navigate('/my-coverage')}
                 style={{
                   background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                   color: 'white',
@@ -637,7 +639,7 @@ export default function Dashboard() {
           
           {recentPayouts.length > 0 && (
             <button
-              onClick={() => window.location.href = '/dashboard/history'}
+              onClick={() => navigate('/payout-history')}
               style={{
                 width: '100%',
                 marginTop: '1rem',
