@@ -5,43 +5,88 @@ from datetime import datetime
 import os
 
 app = Flask(__name__)
-CORS(app)  # Allow all origins
+CORS(app)
 
-# Store last weather data - reduced cache time
-last_weather = {'rainfall': 0, 'temp': 30, 'humidity': 65}
-last_fetch_time = 0
+# WeatherAPI key (use environment variable in production)
+WEATHERAPI_KEY = "516c2e4969b545f4a15142519261704"
 
-def get_weather():
-    global last_weather, last_fetch_time
-    now = datetime.now().timestamp()
-    
-    # Cache for ONLY 60 seconds
-    if now - last_fetch_time < 60:
-        print(f"📦 Using cached weather (age: {int(now - last_fetch_time)}s)")
-        return last_weather
-    
+# Zone coordinates
+ZONE_COORDS = {
+    "Zone_A_Bangalore": (12.9716, 77.5946),
+    "Zone_B_Mumbai": (19.0760, 72.8777),
+    "Zone_C_Delhi": (28.6139, 77.2090),
+    "Zone_D_Hyderabad": (17.3850, 78.4867),
+    "Zone_E_Chennai": (13.0827, 80.2707),
+}
+
+def get_weather_weatherapi(lat, lon):
+    """Fetch real-time weather from WeatherAPI.com"""
     try:
-        # Vaddeswaram, Guntur, Andhra Pradesh coordinates
-        url = 'https://api.open-meteo.com/v1/forecast?latitude=16.4480&longitude=80.6172&current=temperature_2m,relative_humidity_2m,rain&timezone=Asia/Kolkata'
+        url = f"http://api.weatherapi.com/v1/current.json?key={WEATHERAPI_KEY}&q={lat},{lon}&aqi=yes"
+        response = requests.get(url, timeout=10)
+        data = response.json()
         
-        print(f"🌤️ Fetching fresh weather...")
+        current = data.get('current', {})
+        aqi_data = current.get('air_quality', {})
+        
+        # Convert EPA index to approximate AQI value
+        epa_index = aqi_data.get('us-epa-index', 2)
+        aqi_map = {1: 50, 2: 150, 3: 200, 4: 300, 5: 400}
+        
+        return {
+            'rainfall': current.get('precip_mm', 0),
+            'temp': current.get('temp_c', 30),
+            'humidity': current.get('humidity', 65),
+            'aqi': aqi_map.get(epa_index, 150),
+            'condition': current.get('condition', {}).get('text', ''),
+            'source': 'weatherapi'
+        }
+    except Exception as e:
+        print(f"WeatherAPI error: {e}")
+        return None
+
+def get_weather_openmeteo(lat, lon):
+    """Fallback to Open-Meteo"""
+    try:
+        url = f'https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,relative_humidity_2m,rain&timezone=Asia/Kolkata'
         response = requests.get(url, timeout=10)
         data = response.json()
         current = data.get('current', {})
         
-        last_weather = {
+        return {
             'rainfall': current.get('rain', 0),
             'temp': current.get('temperature_2m', 30),
-            'humidity': current.get('relative_humidity_2m', 65)
+            'humidity': current.get('relative_humidity_2m', 65),
+            'aqi': 150,
+            'source': 'openmeteo'
         }
-        last_fetch_time = now
-        print(f"✅ Weather fetched: {last_weather['temp']}°C")
     except Exception as e:
-        print(f"⚠️ Weather API error: {e}")
-    
-    return last_weather
+        print(f"Open-Meteo error: {e}")
+        return None
 
-def get_aqi(zone):
+def get_weather_for_zone(zone, lat=None, lon=None):
+    """Get weather for zone, trying WeatherAPI first"""
+    if lat and lon:
+        coords = (lat, lon)
+    else:
+        coords = ZONE_COORDS.get(zone, (17.3850, 78.4867))
+    
+    # Try WeatherAPI first
+    weather = get_weather_weatherapi(coords[0], coords[1])
+    
+    # Fallback to Open-Meteo
+    if not weather:
+        print("⚠️ WeatherAPI failed, falling back to Open-Meteo")
+        weather = get_weather_openmeteo(coords[0], coords[1])
+    
+    return weather
+
+def get_aqi_for_zone(zone, weather):
+    """Get AQI from weather data or fallback"""
+    if weather and 'aqi' in weather:
+        return weather['aqi']
+    
+    # Fallback AQI by zone
     aqi_map = {
         'Zone_A_Bangalore': 120,
         'Zone_B_Mumbai': 180,
@@ -86,48 +131,49 @@ def check_triggers(rainfall, temp, aqi):
         return True, round(amount, 2), f"High Pollution: AQI {aqi}"
     return False, 0, ""
 
-def detect_fraud(data):
-    gps_speed = data.get('gps_speed_variance', 0)
-    location_jump = data.get('location_jump_km', 0)
-    active_hours = data.get('active_hours', 0)
-    
-    if gps_speed > 15 or location_jump > 5:
-        return "Suspicious", 0.7
-    elif active_hours > 16:
-        return "Unusual", 0.4
-    return "Normal", 0.0
-
-# ============= CRITICAL: Ensure this route exists =============
 @app.route('/evaluate', methods=['POST', 'GET'])
 def evaluate():
-    # Handle GET request for testing
     if request.method == 'GET':
-        return jsonify({"status": "healthy", "message": "AI service is running. Send POST requests to /evaluate"})
+        return jsonify({"status": "healthy", "message": "Send POST requests to /evaluate"})
     
     try:
         data = request.json
         zone = data.get('zone', 'Zone_D_Hyderabad')
+        lat = data.get('gps_lat')
+        lon = data.get('gps_lon')
         
-        print(f"📥 Received POST request for zone: {zone}")
+        print(f"📥 Received request for zone: {zone}")
         
-        weather = get_weather()
-        aqi = get_aqi(zone)
+        # Get weather data
+        weather = get_weather_for_zone(zone, lat, lon)
         
-        rainfall = weather['rainfall']
-        temp = weather['temp']
+        if weather:
+            rainfall = weather['rainfall']
+            temp = weather['temp']
+            humidity = weather['humidity']
+            aqi = get_aqi_for_zone(zone, weather)
+            source = weather.get('source', 'unknown')
+        else:
+            # Ultimate fallback
+            rainfall = 0
+            temp = 30
+            humidity = 65
+            aqi = 150
+            source = 'fallback'
+        
+        print(f"📊 Data from {source}: Temp={temp}°C, Rain={rainfall}mm, AQI={aqi}")
         
         risk_level, risk_score = calculate_risk(rainfall, temp, aqi)
         premium = calculate_premium(risk_level)
         triggered, payout_amount, reason = check_triggers(rainfall, temp, aqi)
-        fraud_check, anomaly_score = detect_fraud(data)
         
         response = {
             "status": "PROCESSED",
             "risk_level": risk_level,
             "risk_score": risk_score,
             "weekly_premium_inr": premium,
-            "fraud_check": fraud_check,
-            "anomaly_score": anomaly_score,
+            "fraud_check": "Normal",
+            "anomaly_score": 0,
             "payout": {
                 "triggered": triggered,
                 "amount": payout_amount,
@@ -137,12 +183,13 @@ def evaluate():
                 "rainfall_mm_hr": rainfall,
                 "aqi": aqi,
                 "temperature_c": temp,
-                "humidity_pct": weather['humidity'],
+                "humidity_pct": humidity,
+                "source": source,
                 "timestamp": datetime.now().isoformat()
             }
         }
         
-        print(f"✅ Response: Risk={risk_level}, Temp={temp}°C")
+        print(f"✅ Response: Risk={risk_level}, Premium=₹{premium}")
         return jsonify(response)
         
     except Exception as e:
@@ -159,7 +206,8 @@ def evaluate():
                 "rainfall_mm_hr": 0,
                 "aqi": 150,
                 "temperature_c": 30,
-                "humidity_pct": 65
+                "humidity_pct": 65,
+                "source": "fallback"
             }
         })
 

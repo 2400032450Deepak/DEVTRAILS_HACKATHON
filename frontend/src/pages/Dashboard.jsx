@@ -78,6 +78,14 @@ export default function Dashboard() {
           getMyPlan(user?.id),
           getPayoutHistory(user?.id)
         ]);
+        
+        // Debug logging - ADD THIS SECTION
+        console.log('📊 Active Plan from API:', planData);
+        console.log('📊 Plan premium:', planData?.premium);
+        console.log('📊 Plan coverage:', planData?.coverage);
+        console.log('📊 Plan name:', planData?.name);
+        console.log('📊 Plan ID:', planData?.id);
+        
         setProfile(profileData);
         setEnvData(triggerData);
         setActivePlan(planData);
@@ -87,7 +95,7 @@ export default function Dashboard() {
         const total = payoutData.reduce((sum, p) => sum + (p.amount || 0), 0);
         setTotalProtected(total);
         
-        console.log('📊 Dashboard Data:', {
+        console.log('📊 Dashboard Data Summary:', {
           profile: profileData,
           totalProtected: total,
           activePlan: planData,
@@ -414,7 +422,7 @@ export default function Dashboard() {
               background: 'var(--accent-primary)',
               borderRadius: '1rem',
               color: 'white',
-            }}>SHOW JUDGES</span>
+            }}></span>
           </div>
           <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
             Click any button to simulate a real-world disruption. Payout will be processed in &lt;60 seconds.
