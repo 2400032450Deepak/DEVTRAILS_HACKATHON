@@ -35,18 +35,26 @@ public class PlanController {
         
         if (userPlan != null && userPlan.isActive()) {
             Plan plan = planService.getPlanById(userPlan.getPlanId());
+            if (plan == null) {
+                return ResponseEntity.noContent().build();
+            }
+            
             Map<String, Object> response = new HashMap<>();
-            response.put("id", userPlan.getId());
-            response.put("planId", plan.getId());
+            response.put("id", plan.getId());              // ← Dashboard uses this
+            response.put("planId", plan.getId());          // ← For compatibility
             response.put("name", plan.getName());
-            response.put("premium", plan.getPremium());
-            response.put("coverage", plan.getCoverage());
-            response.put("startDate", LocalDate.now());
-            response.put("endDate", LocalDate.now().plusDays(7));
+            response.put("premium", plan.getPremium());    // ← Dashboard uses this
+            response.put("coverage", plan.getCoverage());  // ← Dashboard uses this
+            response.put("startDate", userPlan.getStartDate() != null ? userPlan.getStartDate().toString() : LocalDate.now().toString());
+            response.put("endDate", userPlan.getEndDate() != null ? userPlan.getEndDate().toString() : LocalDate.now().plusDays(7).toString());
             response.put("isActive", userPlan.isActive());
+            
+            System.out.println("✅ Active plan for user " + userId + ": " + plan.getName() + " - ₹" + plan.getPremium());
+            
             return ResponseEntity.ok(response);
         }
         
+        System.out.println("📭 No active plan for user: " + userId);
         return ResponseEntity.noContent().build();
     }
 

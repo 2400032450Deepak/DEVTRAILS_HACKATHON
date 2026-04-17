@@ -1,6 +1,8 @@
 import requests
+import os
 
-WAQI_TOKEN = "6fb5cda18acaa3f9e6f8e8a18e7d8d0d88fb6944"  # from aqicn.org
+# WeatherAPI key (use environment variable in production)
+WEATHERAPI_KEY = "516c2e4969b545f4a15142519261704"
 
 # City → (latitude, longitude) map for your zones
 ZONE_COORDS = {
@@ -11,27 +13,40 @@ ZONE_COORDS = {
     "Zone_E_Chennai":   (13.0827, 80.2707),
 }
 
-# City slug for AQI lookup
-ZONE_CITY = {
-    "Zone_A_Bangalore": "bangalore",
-    "Zone_B_Mumbai":    "mumbai",
-    "Zone_C_Delhi":     "delhi",
-    "Zone_D_Hyderabad": "hyderabad",
-    "Zone_E_Chennai":   "chennai",
-}
+def fetch_weather_weatherapi(lat: float, lon: float) -> dict:
+    """Fetch real-time weather from WeatherAPI.com (includes AQI)"""
+    try:
+        url = f"http://api.weatherapi.com/v1/current.json?key={WEATHERAPI_KEY}&q={lat},{lon}&aqi=yes"
+        response = requests.get(url, timeout=10)
+        data = response.json()
+        
+        current = data.get('current', {})
+        aqi_data = current.get('air_quality', {})
+        
+        # Convert EPA index to approximate AQI value
+        epa_index = aqi_data.get('us-epa-index', 2)
+        aqi_map = {1: 50, 2: 150, 3: 200, 4: 300, 5: 400}
+        
+        return {
+            "temperature_c": current.get('temp_c', 30),
+            "humidity_pct": current.get('humidity', 65),
+            "rainfall_mm_hr": current.get('precip_mm', 0),
+            "aqi": aqi_map.get(epa_index, 150),
+            "wind_kph": current.get('wind_kph', 0),
+            "condition": current.get('condition', {}).get('text', ''),
+            "source": "weatherapi"
+        }
+    except Exception as e:
+        print(f"WeatherAPI error: {e}")
+        return None
 
-def fetch_weather(lat: float, lon: float) -> dict:
-    """Fetch real-time weather from Open-Meteo (no API key needed)"""
+def fetch_weather_openmeteo(lat: float, lon: float) -> dict:
+    """Fallback to Open-Meteo if WeatherAPI fails"""
     url = "https://api.open-meteo.com/v1/forecast"
     params = {
         "latitude": lat,
         "longitude": lon,
-        "current": [
-            "temperature_2m",
-            "relative_humidity_2m",
-            "precipitation",
-            "rain",
-        ],
+        "current": ["temperature_2m", "relative_humidity_2m", "rain"],
         "timezone": "Asia/Kolkata",
     }
     try:
@@ -40,43 +55,40 @@ def fetch_weather(lat: float, lon: float) -> dict:
         return {
             "temperature_c": round(c["temperature_2m"], 1),
             "humidity_pct": round(c["relative_humidity_2m"], 1),
-            # Open-Meteo gives mm per hour in 'precipitation'
-            "rainfall_mm_hr": round(c.get("rain", c.get("precipitation", 0)), 2),
+            "rainfall_mm_hr": round(c.get("rain", 0), 2),
+            "aqi": 150,  # Open-Meteo doesn't provide AQI
+            "source": "openmeteo"
         }
     except Exception as e:
-        print(f"[WeatherAPI Error] {e} — using fallback values")
-        return {"temperature_c": 30.0, "humidity_pct": 65.0, "rainfall_mm_hr": 0.0}
-
-
-def fetch_aqi(city_slug: str) -> dict:
-    """Fetch real-time AQI from WAQI"""
-    url = f"https://api.waqi.info/feed/{city_slug}/?token={WAQI_TOKEN}"
-    try:
-        r = requests.get(url, timeout=5).json()
-        if r["status"] == "ok":
-            return {"aqi": float(r["data"]["aqi"])}
-        else:
-            return {"aqi": 80.0}
-    except Exception as e:
-        print(f"[AQIApi Error] {e} — using fallback value")
-        return {"aqi": 80.0}
-
+        print(f"Open-Meteo error: {e}")
+        return None
 
 def get_live_env_data(zone: str, lat: float = None, lon: float = None) -> dict:
     """
-    Master function — call this with zone name.
-    Optionally pass worker's actual GPS lat/lon for precise weather.
+    Master function - tries WeatherAPI first, then falls back to Open-Meteo
     """
-    coords = (lat, lon) if lat and lon else ZONE_COORDS.get(zone, (17.38, 78.48))
-    city = ZONE_CITY.get(zone, "hyderabad")
-
-    weather = fetch_weather(coords[0], coords[1])
-    aqi_data = fetch_aqi(city)
-
-    return {**weather, **aqi_data}
-
+    coords = (lat, lon) if lat and lon else ZONE_COORDS.get(zone, (17.3850, 78.4867))
+    
+    # Try WeatherAPI first (more accurate, includes AQI)
+    weather_data = fetch_weather_weatherapi(coords[0], coords[1])
+    
+    # Fallback to Open-Meteo if WeatherAPI fails
+    if not weather_data:
+        print("⚠️ WeatherAPI failed, falling back to Open-Meteo")
+        weather_data = fetch_weather_openmeteo(coords[0], coords[1])
+    
+    if not weather_data:
+        # Ultimate fallback
+        return {
+            "temperature_c": 30.0,
+            "humidity_pct": 65.0,
+            "rainfall_mm_hr": 0.0,
+            "aqi": 150
+        }
+    
+    return weather_data
 
 if __name__ == "__main__":
     # Test it live
-    data = get_live_env_data("Zone_B_Mumbai")
+    data = get_live_env_data("Zone_D_Hyderabad")
     print("Live Environmental Data:", data)

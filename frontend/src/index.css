@@ -254,3 +254,63 @@ body {
     padding: 0.6rem 1.2rem;
   }
 }
+
+
+
+
+/* Global Mobile Responsive Fixes */
+@media (max-width: 768px) {
+  /* Make all containers padding responsive */
+  div[style*="padding"] {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+  
+  /* Make all grids responsive */
+  div[style*="display: grid"] {
+    grid-template-columns: 1fr !important;
+    gap: 1rem !important;
+  }
+  
+  /* Make cards full width */
+  div[style*="border-radius"]:not([style*="position"]) {
+    width: 100% !important;
+  }
+  
+  /* Fix button text */
+  button span, button {
+    white-space: normal !important;
+    word-break: break-word !important;
+  }
+  
+  /* Fix modal positioning */
+  div[style*="position: fixed"] {
+    padding: 1rem !important;
+  }
+  
+  /* Fix tables */
+  table, thead, tbody, th, td, tr {
+    display: block;
+  }
+  
+  /* Hide overflow issues */
+  body {
+    overflow-x: hidden;
+  }
+}
+
+/* Improve touch targets */
+button, 
+[role="button"],
+input[type="submit"],
+.clickable {
+  min-height: 48px;
+  min-width: 48px;
+}
+
+/* Prevent horizontal scroll */
+html, body {
+  overflow-x: hidden;
+  width: 100%;
+  position: relative;
+}
