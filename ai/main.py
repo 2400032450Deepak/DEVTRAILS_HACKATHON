@@ -1,8 +1,9 @@
-﻿from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 import requests
 from datetime import datetime
 import json
+import os
 
 app = Flask(__name__)
 CORS(app)
@@ -46,7 +47,6 @@ def get_aqi(zone):
     """Fetch real AQI data for the location"""
     try:
         # For Vaddeswaram/Guntur area, use Guntur or Vijayawada
-        # Guntur coordinates for AQI
         url = "https://api.waqi.info/feed/guntur/?token=6fb5cda18acaa3f9e6f8e8a18e7d8d0d88fb6944"
         response = requests.get(url, timeout=5)
         data = response.json()
@@ -195,12 +195,17 @@ def process_background():
     return jsonify({"status": "processing", "message": "Background task started"})
 
 if __name__ == "__main__":
+    # Get port from Render's environment variable, default to 5000 for local development
+    port = int(os.environ.get("PORT", 5000))
+    
     print("=" * 50)
     print("🚀 DeliverShield AI Service Starting...")
     print("=" * 50)
-    print("📍 Server: http://0.0.0.0:5000")
-    print("❤️  Health: http://0.0.0.0:5000/health")
-    print("🎯 Evaluate: POST http://0.0.0.0:5000/evaluate")
+    print(f"📍 Server: http://0.0.0.0:{port}")
+    print(f"❤️  Health: http://0.0.0.0:{port}/health")
+    print(f"🎯 Evaluate: POST http://0.0.0.0:{port}/evaluate")
     print("📍 Location: Vaddeswaram, Guntur, AP (16.4480°N, 80.6172°E)")
     print("=" * 50)
-    app.run(host='0.0.0.0', port=5000, debug=False)
+    
+    # Bind to 0.0.0.0 to accept all incoming connections
+    app.run(host='0.0.0.0', port=port, debug=False)
