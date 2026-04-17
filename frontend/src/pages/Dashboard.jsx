@@ -11,7 +11,7 @@ import { useNavigate } from 'react-router-dom';
 export default function Dashboard() {
   const { user, zone } = useAuth();
   const { showToast } = useContext(ToastContext);
-  const navigate = useNavigate(); // ✅ ADD THIS LINE
+  const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
   const [envData, setEnvData] = useState(null);
   const [activePlan, setActivePlan] = useState(null);
@@ -27,7 +27,6 @@ export default function Dashboard() {
         async (position) => {
           const { latitude, longitude } = position.coords;
           
-          // Reverse geocode to get location name
           try {
             const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`);
             const data = await response.json();
@@ -35,7 +34,6 @@ export default function Dashboard() {
             setDetectedLocation({ name: city, lat: latitude, lon: longitude });
             console.log('📍 Location detected:', city);
           } catch (error) {
-            // Fallback if reverse geocoding fails
             setDetectedLocation({ name: `${latitude.toFixed(2)}, ${longitude.toFixed(2)}`, lat: latitude, lon: longitude });
           }
         },
@@ -47,12 +45,13 @@ export default function Dashboard() {
     }
   }, []);
 
+  // Load from sessionStorage as backup
   useEffect(() => {
-  const savedPlan = sessionStorage.getItem('activePlan');
-  if (savedPlan && !activePlan) {
-    setActivePlan(JSON.parse(savedPlan));
-  }
-}, []);
+    const savedPlan = sessionStorage.getItem('activePlan');
+    if (savedPlan && !activePlan) {
+      setActivePlan(JSON.parse(savedPlan));
+    }
+  }, [activePlan]);
 
   // Helper to refresh all data
   const refreshAllData = async () => {
@@ -68,10 +67,13 @@ export default function Dashboard() {
       setActivePlan(planData);
       setRecentPayouts(payoutData.slice(0, 3));
       
-      // Calculate total protected from payouts
       const total = payoutData.reduce((sum, p) => sum + (p.amount || 0), 0);
       setTotalProtected(total);
       
+      // Save to sessionStorage for backup
+      if (planData) {
+        sessionStorage.setItem('activePlan', JSON.stringify(planData));
+      }
     } catch (error) {
       console.error('Refresh error:', error);
     }
@@ -88,21 +90,23 @@ export default function Dashboard() {
           getPayoutHistory(user?.id)
         ]);
         
-        // Debug logging
         console.log('📊 Active Plan from API:', planData);
         console.log('📊 Plan premium:', planData?.premium);
         console.log('📊 Plan coverage:', planData?.coverage);
         console.log('📊 Plan name:', planData?.name);
-        console.log('📊 Plan ID:', planData?.id);
         
         setProfile(profileData);
         setEnvData(triggerData);
         setActivePlan(planData);
         setRecentPayouts(payoutData.slice(0, 3));
         
-        // Calculate total protected from payouts (REAL DATA)
         const total = payoutData.reduce((sum, p) => sum + (p.amount || 0), 0);
         setTotalProtected(total);
+        
+        // Save to sessionStorage for backup
+        if (planData) {
+          sessionStorage.setItem('activePlan', JSON.stringify(planData));
+        }
         
         console.log('📊 Dashboard Data Summary:', {
           profile: profileData,
@@ -126,18 +130,16 @@ export default function Dashboard() {
 
   if (loading) return <LoadingSpinner message="Loading Dashboard..." />;
 
-  // REAL DATA - from API responses
-  const totalEarnings = totalProtected;  // REAL total from payouts table
+  // Use real data from API
+  const totalEarnings = totalProtected;
+  // IMPORTANT: Only use premium if activePlan exists, otherwise show 0
   const weeklyPremium = activePlan?.premium || 0;
   const coverageAmount = activePlan?.coverage || 0;
   const riskLevel = envData?.risk_level || 'Moderate';
   const userName = profile?.name || "Rider";
   const userUniqueId = user?.id || profile?.id || "Unknown";
-  
-  // Format unique ID for display (show last 6 digits or custom format)
   const formattedUserId = String(userUniqueId).slice(-6);
   
-  // Get readable zone name
   const getReadableZoneName = () => {
     if (detectedLocation?.name) return detectedLocation.name;
     return ZONE_DISPLAY_NAMES[zone] || zone?.replace(/_/g, ' ') || 'Unknown';
@@ -196,7 +198,6 @@ export default function Dashboard() {
           </div>
         </div>
         
-        {/* Location Display - Auto-detected */}
         <div style={{ 
           display: 'flex', 
           alignItems: 'center', 
@@ -223,14 +224,14 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Stats Grid - NOW WITH REAL DATA */}
+      {/* Stats Grid */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
         gap: '1rem',
         marginBottom: '2rem',
       }}>
-        {/* Total Protected Earnings - REAL */}
+        {/* Total Protected Earnings */}
         <div style={{
           background: 'var(--bg-secondary)',
           borderRadius: '1rem',
@@ -247,7 +248,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Active Coverage - REAL */}
+        {/* Active Coverage */}
         <div style={{
           background: 'var(--bg-secondary)',
           borderRadius: '1rem',
@@ -266,7 +267,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Weekly Premium - REAL */}
+        {/* Weekly Premium */}
         <div style={{
           background: 'var(--bg-secondary)',
           borderRadius: '1rem',
@@ -277,11 +278,15 @@ export default function Dashboard() {
             <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>Weekly Premium</span>
             <Award size={18} style={{ color: 'var(--accent-primary)' }} />
           </div>
-          <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>₹{weeklyPremium}</div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>/week</div>
+          <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>
+            {activePlan ? `₹${weeklyPremium}` : '—'}
+          </div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
+            {activePlan ? '/week' : 'Activate plan'}
+          </div>
         </div>
 
-        {/* Risk Level - REAL */}
+        {/* Risk Level */}
         <div style={{
           background: 'var(--bg-secondary)',
           borderRadius: '1rem',
@@ -414,7 +419,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* DEMO SIMULATION - FOR JUDGES */}
+      {/* DEMO SIMULATION */}
       <div style={{ marginTop: '2rem', marginBottom: '2rem' }}>
         <div style={{
           background: 'linear-gradient(135deg, #667eea15 0%, #764ba215 100%)',
@@ -581,7 +586,6 @@ export default function Dashboard() {
               <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem' }}>No active coverage detected</p>
               <button
                 onClick={() => navigate('/dashboard/coverage')}
-
                 style={{
                   background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                   color: 'white',
@@ -598,7 +602,7 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Recent Payouts - REAL DATA */}
+        {/* Recent Payouts */}
         <div style={{
           background: 'var(--bg-secondary)',
           borderRadius: '1rem',
@@ -647,7 +651,7 @@ export default function Dashboard() {
           
           {recentPayouts.length > 0 && (
             <button
-             onClick={() => navigate('/dashboard/history')}
+              onClick={() => navigate('/dashboard/history')}
               style={{
                 width: '100%',
                 marginTop: '1rem',
